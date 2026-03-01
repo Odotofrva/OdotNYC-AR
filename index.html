@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <!-- viewport-fit=cover is crucial for iOS safe areas -->
+  <!-- viewport-fit=cover for iOS safe areas -->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>OdotNYC AR</title>
 
@@ -17,53 +17,50 @@
       --txt: #fff;
       --accent: #9be7ff;
 
-      /* safe areas (iOS notch/home bar) */
       --safeL: env(safe-area-inset-left);
       --safeR: env(safe-area-inset-right);
       --safeT: env(safe-area-inset-top);
       --safeB: env(safe-area-inset-bottom);
 
       --pad: 12px;
+
+      /* JS sets this to fix “half-screen” / address-bar issues */
+      --vh: 1vh;
     }
 
     *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
     html, body{
-      margin:0;
-      padding:0;
+      margin:0; padding:0;
       width:100%;
       height:100%;
       overflow:hidden;
       background:#000;
       color:var(--txt);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     }
 
-    /* Make the layout truly full-screen across mobile browsers */
+    /* Use the “real” viewport height */
     body{
-      position: fixed; /* prevents iOS rubber-band scrolling from messing up overlays */
-      inset: 0;
-      width: 100vw;
-      height: 100vh;   /* fallback */
-      height: 100dvh;  /* modern mobile viewport */
-      overflow: hidden;
+      width:100vw;
+      height: calc(var(--vh) * 100);
+      overflow:hidden;
+      position: relative;
     }
 
-    /* Force A-Frame scene + canvas to fill screen */
+    /* Force A-Frame scene + canvas to fill the “real” height */
     a-scene{
       position: fixed !important;
-      inset: 0 !important;
+      left: 0 !important; top: 0 !important;
       width: 100vw !important;
-      height: 100vh !important;
-      height: 100dvh !important;
+      height: calc(var(--vh) * 100) !important;
       z-index: 0;
     }
-    /* A-Frame injects a canvas; make sure it obeys */
     .a-canvas, canvas{
       position: fixed !important;
-      inset: 0 !important;
+      left: 0 !important; top: 0 !important;
       width: 100vw !important;
-      height: 100vh !important;
-      height: 100dvh !important;
-      display: block;
+      height: calc(var(--vh) * 100) !important;
+      display:block;
     }
 
     /* ---------- LOADING (logo only) ---------- */
@@ -74,7 +71,11 @@
       display: grid;
       place-items: center;
       background: radial-gradient(1100px 600px at 50% 25%, rgba(255,255,255,.08), rgba(0,0,0,.96));
-      padding: calc(var(--pad) + var(--safeT)) calc(var(--pad) + var(--safeR)) calc(var(--pad) + var(--safeB)) calc(var(--pad) + var(--safeL));
+      padding:
+        calc(var(--pad) + var(--safeT))
+        calc(var(--pad) + var(--safeR))
+        calc(var(--pad) + var(--safeB))
+        calc(var(--pad) + var(--safeL));
     }
     .logo-only{
       width: min(240px, 66vw);
@@ -101,7 +102,7 @@
       50%{ transform: translateY(-2px); opacity: 1; }
     }
     @media (prefers-reduced-motion: reduce){
-      .logo-only{ animation: none; }
+      .logo-only{ animation:none; }
     }
 
     /* ---------- HUD ---------- */
@@ -115,7 +116,6 @@
       gap:10px;
       justify-content: space-between;
       pointer-events:none;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     }
     .pill{
       pointer-events:auto;
@@ -132,24 +132,21 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-
-    /* Hide HUD until scanning begins */
     body.waiting #hud{ display:none; }
 
-    /* ---------- INSTRUCTIONS MODAL (mobile bottom sheet) ---------- */
+    /* ---------- INSTRUCTIONS MODAL ---------- */
     #modal{
       position: fixed;
       inset: 0;
       z-index: 9999;
       display: none;
-      place-items: end center; /* bottom sheet on mobile */
+      place-items: end center; /* bottom sheet mobile */
       background: rgba(0,0,0,.50);
       padding:
         calc(var(--pad) + var(--safeT))
         calc(var(--pad) + var(--safeR))
         calc(var(--pad) + var(--safeB))
         calc(var(--pad) + var(--safeL));
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     }
     .sheet{
       width: 100%;
@@ -159,10 +156,7 @@
       background: rgba(0,0,0,.72);
       backdrop-filter: blur(12px);
       box-shadow: 0 18px 60px rgba(0,0,0,.55);
-      transform: translateY(8px);
-      animation: rise .18s ease-out forwards;
     }
-    @keyframes rise{ to { transform: translateY(0); } }
     .handle{
       width: 42px; height: 4px;
       border-radius: 999px;
@@ -175,19 +169,13 @@
       letter-spacing: .01em;
       font-weight: 850;
     }
-    .sheet p{
+    .sheet p, .sheet ol{
       margin: 0;
       font-size: 13px;
       line-height: 1.45;
       opacity: .92;
     }
-    .sheet ol{
-      margin: 10px 0 0 18px;
-      padding: 0;
-      font-size: 13px;
-      line-height: 1.45;
-      opacity: .92;
-    }
+    .sheet ol{ margin-top: 10px; margin-left: 18px; }
     .sheet li{ margin: 6px 0; }
     .sheet b{ color: var(--accent); font-weight: 850; }
 
@@ -216,20 +204,48 @@
     }
     .btn:active{ transform: translateY(1px); }
 
-    /* Desktop enhancement: center modal, side-by-side buttons */
+    /* ---------- CONTROLS (mobile-first bottom bar) ---------- */
+    #controls{
+      position: fixed;
+      left: calc(var(--pad) + var(--safeL));
+      right: calc(var(--pad) + var(--safeR));
+      bottom: calc(var(--pad) + var(--safeB));
+      z-index: 9998;
+      display: none;
+      gap: 10px;
+      flex-wrap: wrap;
+      pointer-events: auto;
+      justify-content: center;
+    }
+    body.scanning #controls{ display: flex; }
+
+    .cbtn{
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(0,0,0,.55);
+      color: var(--txt);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-weight: 800;
+      backdrop-filter: blur(10px);
+      cursor: pointer;
+      user-select: none;
+      min-width: 98px;
+      text-align: center;
+    }
+    .cbtn:active{ transform: translateY(1px); }
+
     @media (min-width: 760px){
       #modal{ place-items: center; }
       .sheet{ width: min(520px, calc(100% - 28px)); }
       .actions{ grid-template-columns: 1fr 1fr; }
-    }
-    @media (prefers-reduced-motion: reduce){
-      .sheet{ animation:none; transform:none; }
+      #controls{ justify-content: flex-end; }
     }
   </style>
 </head>
 
 <body class="waiting">
-  <!-- LOADING (logo-only, 3s) -->
+  <!-- Loading screen -->
   <section id="loading" aria-hidden="true">
     <div class="logo-only">
       <img src="odotnyc-logo.png" alt="OdotNYC logo" />
@@ -242,7 +258,18 @@
     <div class="pill" id="status">Find marker…</div>
   </div>
 
-  <!-- Instructions Modal -->
+  <!-- Controls (shown after scanning starts) -->
+  <div id="controls" aria-label="Model controls">
+    <button class="cbtn" id="pitchUp" type="button">Pitch ▲</button>
+    <button class="cbtn" id="pitchDown" type="button">Pitch ▼</button>
+    <button class="cbtn" id="yawL" type="button">Rotate ↺</button>
+    <button class="cbtn" id="yawR" type="button">Rotate ↻</button>
+    <button class="cbtn" id="scaleDown" type="button">Scale −</button>
+    <button class="cbtn" id="scaleUp" type="button">Scale +</button>
+    <button class="cbtn" id="reset" type="button">Reset</button>
+  </div>
+
+  <!-- Instructions modal -->
   <section id="modal" role="dialog" aria-modal="true" aria-label="Scan Instructions">
     <div class="sheet">
       <div class="handle" aria-hidden="true"></div>
@@ -260,7 +287,7 @@
     </div>
   </section>
 
-  <!-- A-Frame AR Scene -->
+  <!-- AR Scene -->
   <a-scene
     embedded
     vr-mode-ui="enabled:false"
@@ -270,9 +297,7 @@
     <a-entity light="type: ambient; intensity: 0.9"></a-entity>
     <a-entity light="type: directional; intensity: 0.6" position="1 2 1"></a-entity>
 
-    <!-- Preload your model -->
     <a-assets timeout="45000">
-      <!-- Using your uploaded file name -->
       <a-asset-item id="odotModel" src="office_005.glb"></a-asset-item>
     </a-assets>
 
@@ -285,7 +310,6 @@
       smoothTolerance="0.01"
       smoothThreshold="2"
     >
-      <!-- Model: start with conservative transform for big environment GLBs -->
       <a-entity
         id="model"
         gltf-model="#odotModel"
@@ -299,6 +323,15 @@
   </a-scene>
 
   <script>
+    // --- Fix “half screen” by using real innerHeight as 100vh ---
+    function setRealVH(){
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    }
+    setRealVH();
+    window.addEventListener('resize', setRealVH, { passive: true });
+    window.addEventListener('orientationchange', () => setTimeout(setRealVH, 200), { passive: true });
+
     const loading = document.getElementById('loading');
     const modal = document.getElementById('modal');
     const statusEl = document.getElementById('status');
@@ -308,11 +341,29 @@
 
     const markerEl = document.getElementById('marker');
     const assetItem = document.getElementById('odotModel');
+    const modelEl = document.getElementById('model');
 
     let modelReady = false;
     let scanningEnabled = false;
 
-    // Force 3-second splash, then show instructions
+    // Model transform controls
+    const base = { rx: -90, ry: 0, rz: 0, scale: 0.08, y: 0.05 };
+    let pitch = 0;  // +/- adjusts X
+    let yaw = 0;    // +/- adjusts Y
+    let scl = base.scale;
+
+    function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+
+    function applyTransform(){
+      const rx = base.rx + pitch;
+      const ry = base.ry + yaw;
+      modelEl.setAttribute('rotation', `${rx} ${ry} ${base.rz}`);
+      modelEl.setAttribute('scale', `${scl} ${scl} ${scl}`);
+      modelEl.setAttribute('position', `0 ${base.y} 0`);
+    }
+    applyTransform();
+
+    // Splash: exactly 3 seconds, then show modal
     setTimeout(() => {
       loading.style.display = 'none';
       modal.style.display = 'grid';
@@ -332,8 +383,11 @@
     function startScanning(){
       modal.style.display = 'none';
       document.body.classList.remove('waiting');
+      document.body.classList.add('scanning');
       scanningEnabled = true;
       statusEl.textContent = modelReady ? 'Find marker…' : 'Loading model…';
+      // give A-Frame a nudge after UI changes
+      window.dispatchEvent(new Event('resize'));
     }
 
     startARBtn.addEventListener('click', startScanning);
@@ -347,13 +401,35 @@
       statusEl.textContent = modelReady ? 'Find marker…' : 'Loading model…';
     });
 
-    // If iOS still shows slight height mismatch sometimes, nudge canvas sizing on resize
-    function forceResize(){
-      // A-Frame listens to resize, but we can help mobile browsers
-      window.dispatchEvent(new Event('resize'));
-    }
-    window.addEventListener('orientationchange', () => setTimeout(forceResize, 250));
-    window.addEventListener('resize', () => setTimeout(forceResize, 50), { passive: true });
+    // Controls
+    document.getElementById('pitchUp').addEventListener('click', () => {
+      pitch = clamp(pitch + 7.5, -60, 60);
+      applyTransform();
+    });
+    document.getElementById('pitchDown').addEventListener('click', () => {
+      pitch = clamp(pitch - 7.5, -60, 60);
+      applyTransform();
+    });
+    document.getElementById('yawL').addEventListener('click', () => {
+      yaw -= 15;
+      applyTransform();
+    });
+    document.getElementById('yawR').addEventListener('click', () => {
+      yaw += 15;
+      applyTransform();
+    });
+    document.getElementById('scaleDown').addEventListener('click', () => {
+      scl = clamp(+((scl - 0.01).toFixed(3)), 0.01, 5);
+      applyTransform();
+    });
+    document.getElementById('scaleUp').addEventListener('click', () => {
+      scl = clamp(+((scl + 0.01).toFixed(3)), 0.01, 5);
+      applyTransform();
+    });
+    document.getElementById('reset').addEventListener('click', () => {
+      pitch = 0; yaw = 0; scl = base.scale;
+      applyTransform();
+    });
   </script>
 </body>
 </html>
