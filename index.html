@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>OdotNYC AR</title>
 
   <!-- A-Frame + AR.js -->
@@ -15,210 +15,135 @@
       --line: rgba(255,255,255,.16);
       --txt: #fff;
       --accent: #9be7ff;
+
+      --pad: max(12px, env(safe-area-inset-left));
+      --padR: max(12px, env(safe-area-inset-right));
+      --padT: max(12px, env(safe-area-inset-top));
+      --padB: max(12px, env(safe-area-inset-bottom));
     }
     html, body { margin:0; height:100%; overflow:hidden; background:#000; }
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-    /* ---------- LOADING SCREEN ---------- */
+    /* Make the AR canvas truly fill the screen */
+    a-scene, canvas { width: 100% !important; height: 100% !important; }
+
+    /* --------- LOADING (logo only) --------- */
     #loading {
       position: fixed; inset: 0;
       display: grid; place-items: center;
-      background: radial-gradient(1200px 600px at 50% 20%, rgba(255,255,255,.08), rgba(0,0,0,.92));
+      background: radial-gradient(1100px 600px at 50% 25%, rgba(255,255,255,.08), rgba(0,0,0,.96));
       z-index: 10000;
-      color: var(--txt);
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     }
-
-    .load-card{
-      width: min(560px, calc(100% - 24px));
-      border: 1px solid var(--line);
-      border-radius: 22px;
-      padding: 18px 16px 14px;
-      background: rgba(0,0,0,.55);
+    .logo-only {
+      width: min(220px, 62vw);
+      aspect-ratio: 1 / 1;
+      border-radius: 28px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.03);
       backdrop-filter: blur(10px);
-      box-shadow: 0 18px 60px rgba(0,0,0,.45);
+      display: grid; place-items: center;
       overflow: hidden;
-      position: relative;
+      box-shadow: 0 18px 60px rgba(0,0,0,.55);
+      animation: pulse 1.35s ease-in-out infinite;
     }
-
-    .load-top{
-      display:flex; gap:14px; align-items:center;
-      margin-bottom: 14px;
-    }
-
-    .logo-wrap{
-      width: 74px; height: 74px;
-      border-radius: 18px;
-      border: 1px solid rgba(255,255,255,.18);
-      background: rgba(255,255,255,.04);
-      display:grid; place-items:center;
-      overflow:hidden;
-      flex: 0 0 auto;
-      position: relative;
-    }
-    .logo-wrap img{
+    .logo-only img{
       width: 100%;
       height: 100%;
       object-fit: cover;
-      filter: contrast(1.1) brightness(1.05);
-      transform: scale(1.05);
+      transform: scale(1.06);
+      filter: contrast(1.08) brightness(1.05);
+    }
+    @keyframes pulse{
+      0%,100%{ transform: translateY(0); opacity: .98; }
+      50%{ transform: translateY(-2px); opacity: 1; }
     }
 
-    /* Glitch heading */
-    .glitch {
-      position: relative;
-      font-weight: 900;
-      letter-spacing: .02em;
-      font-size: 24px;
-      line-height: 1.1;
-      margin: 0;
-      display: inline-block;
-    }
-    .glitch::before, .glitch::after{
-      content: attr(data-text);
-      position: absolute;
-      left: 0; top: 0;
-      width: 100%;
-      overflow: hidden;
-      opacity: .85;
-      clip-path: inset(0 0 0 0);
-    }
-    .glitch::before{
-      transform: translate(1px, 0);
-      text-shadow: -2px 0 rgba(0,255,255,.9);
-      animation: glitchTop 1.15s infinite linear alternate-reverse;
-    }
-    .glitch::after{
-      transform: translate(-1px, 0);
-      text-shadow: 2px 0 rgba(255,255,255,.9);
-      animation: glitchBot 1.35s infinite linear alternate-reverse;
-    }
-
-    @keyframes glitchTop{
-      0%{ clip-path: inset(0 0 88% 0); transform: translate(1px, -1px); }
-      10%{ clip-path: inset(0 0 42% 0); transform: translate(1px, 0); }
-      20%{ clip-path: inset(10% 0 55% 0); transform: translate(2px, 0); }
-      30%{ clip-path: inset(0 0 65% 0); transform: translate(0, 0); }
-      40%{ clip-path: inset(18% 0 45% 0); transform: translate(2px, 1px); }
-      50%{ clip-path: inset(0 0 80% 0); transform: translate(1px, 0); }
-      60%{ clip-path: inset(30% 0 30% 0); transform: translate(2px, -1px); }
-      70%{ clip-path: inset(0 0 58% 0); transform: translate(1px, 0); }
-      80%{ clip-path: inset(22% 0 35% 0); transform: translate(0, 0); }
-      90%{ clip-path: inset(0 0 76% 0); transform: translate(2px, 0); }
-      100%{ clip-path: inset(12% 0 52% 0); transform: translate(1px, -1px); }
-    }
-    @keyframes glitchBot{
-      0%{ clip-path: inset(82% 0 0 0); transform: translate(-1px, 1px); }
-      10%{ clip-path: inset(35% 0 28% 0); transform: translate(-2px, 0); }
-      20%{ clip-path: inset(60% 0 10% 0); transform: translate(-1px, 0); }
-      30%{ clip-path: inset(50% 0 20% 0); transform: translate(-2px, 1px); }
-      40%{ clip-path: inset(75% 0 0 0); transform: translate(-1px, 0); }
-      50%{ clip-path: inset(40% 0 32% 0); transform: translate(-2px, 0); }
-      60%{ clip-path: inset(68% 0 8% 0); transform: translate(-1px, 1px); }
-      70%{ clip-path: inset(55% 0 18% 0); transform: translate(-2px, 0); }
-      80%{ clip-path: inset(78% 0 0 0); transform: translate(-1px, 0); }
-      90%{ clip-path: inset(45% 0 30% 0); transform: translate(-2px, 1px); }
-      100%{ clip-path: inset(64% 0 10% 0); transform: translate(-1px, 0); }
-    }
-
-    .subhead{
-      margin: 6px 0 0;
-      opacity: .85;
-      font-size: 13px;
-      line-height: 1.35;
-    }
-
-    /* Loading bar */
-    .bar {
-      margin-top: 14px;
-      height: 10px;
-      border-radius: 999px;
-      background: rgba(255,255,255,.08);
-      border: 1px solid rgba(255,255,255,.12);
-      overflow: hidden;
-    }
-    .bar > i{
-      display:block;
-      height: 100%;
-      width: 35%;
-      background: linear-gradient(90deg, rgba(155,231,255,.0), rgba(155,231,255,.9), rgba(155,231,255,.0));
-      animation: sweep 1.05s infinite linear;
-      filter: blur(.1px);
-    }
-    @keyframes sweep{
-      0%{ transform: translateX(-120%); }
-      100%{ transform: translateX(420%); }
-    }
-
-    .small-note{
-      margin-top: 10px;
-      font-size: 12px;
-      opacity: .8;
-    }
-    .small-note b{ color: var(--accent); font-weight: 700; }
-
-    /* ---------- INSTRUCTIONS MODAL ---------- */
+    /* --------- INSTRUCTIONS MODAL --------- */
     #modal {
       position: fixed; inset: 0;
       display: none;
-      place-items: center;
+      place-items: end center; /* mobile-first: bottom sheet */
       z-index: 9999;
-      background: rgba(0,0,0,.55);
+      background: rgba(0,0,0,.50);
       color: var(--txt);
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      padding: 0 var(--padR) var(--padB) var(--pad);
     }
-    .modal-card{
-      width: min(560px, calc(100% - 24px));
+    .sheet{
+      width: 100%;
       border: 1px solid var(--line);
       border-radius: 22px;
       padding: 14px 14px 12px;
-      background: rgba(0,0,0,.62);
-      backdrop-filter: blur(10px);
-      box-shadow: 0 18px 60px rgba(0,0,0,.45);
+      background: rgba(0,0,0,.72);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 18px 60px rgba(0,0,0,.55);
+      transform: translateY(6px);
+      animation: rise .18s ease-out forwards;
     }
-    .modal-title{
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
-      font-weight: 800;
-      margin-bottom: 8px;
-      font-size: 14px;
+    @keyframes rise{ to { transform: translateY(0); } }
+
+    .sheet .handle{
+      width: 42px; height: 4px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.22);
+      margin: 2px auto 10px;
+    }
+    .sheet h2{
+      margin: 0 0 8px;
+      font-size: 15px;
       letter-spacing: .01em;
+      font-weight: 850;
     }
-    .modal-body{
+    .sheet p{
+      margin: 0;
       font-size: 13px;
-      line-height: 1.4;
+      line-height: 1.45;
       opacity: .92;
     }
-    .modal-body ol{
+    .sheet ol{
       margin: 10px 0 0 18px;
       padding: 0;
+      font-size: 13px;
+      line-height: 1.45;
+      opacity: .92;
     }
-    .modal-body li{ margin: 6px 0; }
-    .modal-actions{
+    .sheet li{ margin: 6px 0; }
+    .sheet b{ color: var(--accent); font-weight: 800; }
+
+    .actions{
       margin-top: 12px;
-      display:flex; gap:10px; flex-wrap: wrap;
-      justify-content: flex-end;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
     }
     .btn{
+      width: 100%;
       border: 1px solid rgba(255,255,255,.18);
       background: rgba(0,0,0,.55);
       color: var(--txt);
-      border-radius: 14px;
-      padding: 10px 12px;
-      font-size: 13px;
+      border-radius: 16px;
+      padding: 12px 14px;
+      font-size: 14px;
+      font-weight: 750;
       backdrop-filter: blur(8px);
       cursor: pointer;
       user-select: none;
     }
     .btn.primary{
       border-color: rgba(155,231,255,.45);
-      background: rgba(155,231,255,.12);
+      background: rgba(155,231,255,.14);
     }
     .btn:active{ transform: translateY(1px); }
 
-    /* ---------- TOP STATUS PILL ---------- */
+    /* --------- HUD --------- */
     #hud {
-      position: fixed; left: 12px; right: 12px; top: 12px;
-      display:flex; justify-content:space-between; gap:10px;
+      position: fixed;
+      left: var(--pad);
+      right: var(--padR);
+      top: var(--padT);
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
       z-index: 9998;
       pointer-events:none;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
@@ -230,67 +155,72 @@
       border: 1px solid rgba(255,255,255,.18);
       border-radius: 999px;
       padding: 8px 12px;
-      backdrop-filter: blur(8px);
+      backdrop-filter: blur(10px);
       font-size: 13px;
       line-height: 1;
       user-select:none;
+      max-width: 68vw;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    /* Hide HUD until after instructions */
+    /* Default: hide HUD until scanning starts */
     body.waiting #hud { display: none; }
+
+    /* Desktop/tablet enhancement */
+    @media (min-width: 740px){
+      #modal{ place-items: center; padding: 0; }
+      .sheet{
+        width: min(520px, calc(100% - 28px));
+        border-radius: 22px;
+        padding: 16px 16px 14px;
+      }
+      .actions{
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    /* Accessibility: reduce motion */
+    @media (prefers-reduced-motion: reduce){
+      .logo-only { animation: none; }
+      .sheet { animation: none; }
+    }
   </style>
 </head>
 
 <body class="waiting">
 
-  <!-- LOADING SCREEN -->
-  <section id="loading" aria-live="polite">
-    <div class="load-card">
-      <div class="load-top">
-        <div class="logo-wrap">
-          <!-- Your logo image file -->
-          <img src="odotnyc3final.png" alt="OdotNYC logo" />
-        </div>
-        <div>
-          <h1 class="glitch" data-text="OdotNYC AR">OdotNYC AR</h1>
-          <p class="subhead">Booting camera + loading 3D asset…</p>
-        </div>
-      </div>
-
-      <div class="bar" aria-hidden="true"><i></i></div>
-      <div class="small-note">
-        Keep your marker ready. Best results with <b>good lighting</b> and a flat marker.
-      </div>
+  <!-- LOADING SCREEN (logo only, 3 seconds) -->
+  <section id="loading" aria-hidden="true">
+    <div class="logo-only">
+      <img src="odotnyc3final.png" alt="OdotNYC logo" />
     </div>
   </section>
 
+  <!-- HUD -->
+  <div id="hud">
+    <div class="pill">📷 OdotNYC AR</div>
+    <div class="pill" id="status">Find marker…</div>
+  </div>
+
   <!-- INSTRUCTIONS MODAL -->
-  <section id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <div class="modal-card">
-      <div class="modal-title" id="modalTitle">
-        <span>How to scan</span>
-        <span style="opacity:.7; font-weight:700;">OdotNYC AR</span>
-      </div>
-      <div class="modal-body">
-        <ol>
-          <li>Allow <b>camera access</b> when prompted.</li>
-          <li>Point your camera at the <b>OdotNYC marker</b> (flat + well-lit).</li>
-          <li>Hold steady for 1–2 seconds — the <b>3D model</b> will lock on.</li>
-          <li>If it jitters: move closer, reduce glare, or increase lighting.</li>
-        </ol>
-      </div>
-      <div class="modal-actions">
-        <button class="btn" id="closeModal">Got it</button>
+  <section id="modal" role="dialog" aria-modal="true">
+    <div class="sheet" aria-label="Instructions">
+      <div class="handle" aria-hidden="true"></div>
+      <h2>Scan Instructions</h2>
+      <p>When you start scanning, allow camera access if prompted.</p>
+      <ol>
+        <li>Point your camera at the <b>OdotNYC marker</b>.</li>
+        <li>Keep it <b>flat</b> and <b>well-lit</b>.</li>
+        <li>Hold steady for a moment — the <b>3D model</b> will appear.</li>
+      </ol>
+      <div class="actions">
+        <button class="btn" id="closeModal">Not now</button>
         <button class="btn primary" id="startAR">Start scanning</button>
       </div>
     </div>
   </section>
-
-  <!-- HUD (status) -->
-  <div id="hud">
-    <div class="pill">📷 OdotNYC AR</div>
-    <div class="pill" id="status">Loading…</div>
-  </div>
 
   <!-- A-FRAME SCENE -->
   <a-scene
@@ -303,12 +233,12 @@
     <a-entity light="type: ambient; intensity: 0.9"></a-entity>
     <a-entity light="type: directional; intensity: 0.6" position="1 2 1"></a-entity>
 
-    <!-- Preload your GLB -->
+    <!-- Preload your GLB (still loads during the 3 seconds + after if needed) -->
     <a-assets timeout="45000">
-      <a-asset-item id="odotModel" src="office_005.glb"></a-asset-item>
+      <a-asset-item id="odotModel" src="odotnyc.glb"></a-asset-item>
     </a-assets>
 
-    <!-- Marker (pattern) -->
+    <!-- Marker -->
     <a-marker
       id="marker"
       type="pattern"
@@ -318,7 +248,6 @@
       smoothTolerance="0.01"
       smoothThreshold="2"
     >
-      <!-- Your GLB model -->
       <a-entity
         id="model"
         gltf-model="#odotModel"
@@ -339,55 +268,55 @@
     const startARBtn = document.getElementById('startAR');
     const closeModalBtn = document.getElementById('closeModal');
 
-    const assetItem = document.querySelector('#odotModel');
-    const markerEl = document.querySelector('#marker');
+    const markerEl = document.getElementById('marker');
+    const assetItem = document.getElementById('odotModel');
 
-    // Stage control:
-    // 1) show loading screen until GLB is loaded
-    // 2) then show instructions modal
-    // 3) then enable scanning UI (HUD) while user scans
+    let modelReady = false;
+    let scanningEnabled = false;
 
-    function showInstructions() {
+    // 1) Logo-only loading screen for exactly 3 seconds
+    //    (model can keep loading in the background)
+    setTimeout(() => {
+      loading.style.display = 'none';
       modal.style.display = 'grid';
-      document.body.classList.add('waiting'); // hides HUD until user starts scanning
-      statusEl.textContent = 'Ready';
-    }
+      // HUD stays hidden until user starts scanning
+      statusEl.textContent = 'Loading model…';
+    }, 3000);
 
-    function startScanning() {
-      modal.style.display = 'none';
-      document.body.classList.remove('waiting'); // show HUD
-      statusEl.textContent = 'Find marker…';
-    }
-
-    // Buttons
-    startARBtn.addEventListener('click', startScanning);
-    closeModalBtn.addEventListener('click', startScanning);
-
-    // Model load events
+    // 2) Track model load status (so we can show helpful status text)
     assetItem.addEventListener('loaded', () => {
-      // Small delay to let camera init feel smooth
-      setTimeout(() => {
-        loading.style.display = 'none';
-        showInstructions();
-      }, 450);
+      modelReady = true;
+      if (scanningEnabled) statusEl.textContent = 'Find marker…';
     });
 
     assetItem.addEventListener('error', (e) => {
       console.warn('GLB load error:', e);
       statusEl.textContent = 'Model failed to load ❌';
-      // Keep loading visible, but provide some hint
-      // (You can add extra UI here if needed)
     });
 
-    // Marker events (status updates)
+    // 3) Start scanning: close modal, show HUD
+    function startScanning(){
+      modal.style.display = 'none';
+      document.body.classList.remove('waiting');
+      scanningEnabled = true;
+      statusEl.textContent = modelReady ? 'Find marker…' : 'Loading model…';
+    }
+
+    startARBtn.addEventListener('click', startScanning);
+    closeModalBtn.addEventListener('click', () => {
+      // If user closes, still allow scanning (you can change this behavior)
+      startScanning();
+    });
+
+    // 4) Marker events update HUD
     markerEl.addEventListener('markerFound', () => {
-      statusEl.textContent = 'Marker found 🎯';
+      statusEl.textContent = modelReady ? 'Marker found 🎯' : 'Marker found (loading…)';
     });
     markerEl.addEventListener('markerLost', () => {
-      statusEl.textContent = 'Find marker…';
+      statusEl.textContent = modelReady ? 'Find marker…' : 'Loading model…';
     });
 
-    // Optional: If your model is invisible, try uncommenting one of these defaults:
+    // Optional quick fixes if your model is invisible:
     // document.querySelector('#model').setAttribute('rotation', '-90 0 0');
     // document.querySelector('#model').setAttribute('position', '0 0.2 0');
     // document.querySelector('#model').setAttribute('scale', '2 2 2');
