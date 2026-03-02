@@ -2,433 +2,292 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <!-- viewport-fit=cover for iOS safe areas -->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
   <title>OdotNYC AR</title>
 
-  <!-- A-Frame + AR.js -->
+  <!-- Prevent weird zoom behaviors on mobile -->
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.7/aframe/build/aframe-ar.min.js"></script>
+
+  <!-- AR.js for A-Frame (marker-based) -->
+  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
 
   <style>
     :root{
-      --glass: rgba(0,0,0,.68);
-      --line: rgba(255,255,255,.16);
-      --txt: #fff;
-      --accent: #9be7ff;
-
-      --safeL: env(safe-area-inset-left);
-      --safeR: env(safe-area-inset-right);
-      --safeT: env(safe-area-inset-top);
-      --safeB: env(safe-area-inset-bottom);
-
-      --pad: 12px;
-
-      /* JS sets this to fix “half-screen” / address-bar issues */
-      --vh: 1vh;
+      --bg:#000;
+      --fg:#fff;
+      --muted:rgba(255,255,255,.72);
+      --card:rgba(0,0,0,.55);
+      --border:rgba(255,255,255,.16);
     }
 
-    *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-    html, body{
-      margin:0; padding:0;
-      width:100%;
-      height:100%;
-      overflow:hidden;
+    html, body { height:100%; width:100%; margin:0; background:var(--bg); color:var(--fg); overflow:hidden; }
+    * { box-sizing:border-box; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+
+    /* Loading screen */
+    #loader{
+      position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+      background:#000; z-index:9999;
+      padding:24px;
+    }
+    .loader-inner{
+      display:flex; flex-direction:column; align-items:center; gap:14px;
+    }
+    .logo{
+      width:min(64vw, 260px);
+      height:auto;
+      filter: drop-shadow(0 10px 30px rgba(255,255,255,.08));
+      image-rendering: -webkit-optimize-contrast;
+    }
+
+    /* simple glitch effect */
+    .glitch-wrap{
+      position:relative;
+      display:inline-block;
+    }
+    .glitch-wrap::before,
+    .glitch-wrap::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:url("assets/odotnyc-logo.png") center/contain no-repeat;
+      opacity:.6;
+      mix-blend-mode: screen;
+      pointer-events:none;
+      transform: translate(0,0);
+      clip-path: inset(0 0 0 0);
+      animation: glitch 900ms infinite linear;
+    }
+    .glitch-wrap::after{
+      opacity:.45;
+      animation-duration: 1200ms;
+      animation-direction: reverse;
+    }
+    @keyframes glitch{
+      0%   { transform: translate(0,0); clip-path: inset(0 0 85% 0); }
+      10%  { transform: translate(2px,-1px); clip-path: inset(10% 0 55% 0); }
+      20%  { transform: translate(-2px,1px); clip-path: inset(35% 0 35% 0); }
+      30%  { transform: translate(3px,0); clip-path: inset(60% 0 15% 0); }
+      40%  { transform: translate(-3px,2px); clip-path: inset(5% 0 70% 0); }
+      50%  { transform: translate(1px,-2px); clip-path: inset(70% 0 5% 0); }
+      60%  { transform: translate(-1px,0); clip-path: inset(25% 0 45% 0); }
+      70%  { transform: translate(2px,2px); clip-path: inset(45% 0 25% 0); }
+      80%  { transform: translate(-2px,-1px); clip-path: inset(15% 0 60% 0); }
+      90%  { transform: translate(1px,1px); clip-path: inset(55% 0 10% 0); }
+      100% { transform: translate(0,0); clip-path: inset(0 0 85% 0); }
+    }
+
+    /* AR container */
+    #app{
+      position:fixed; inset:0;
+      display:none;
       background:#000;
-      color:var(--txt);
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     }
 
-    /* Use the “real” viewport height */
-    body{
-      width:100vw;
-      height: calc(var(--vh) * 100);
-      overflow:hidden;
-      position: relative;
-    }
-
-    /* Force A-Frame scene + canvas to fill the “real” height */
-    a-scene{
-      position: fixed !important;
-      left: 0 !important; top: 0 !important;
-      width: 100vw !important;
-      height: calc(var(--vh) * 100) !important;
-      z-index: 0;
-    }
-    .a-canvas, canvas{
-      position: fixed !important;
-      left: 0 !important; top: 0 !important;
-      width: 100vw !important;
-      height: calc(var(--vh) * 100) !important;
-      display:block;
-    }
-
-    /* ---------- LOADING (logo only) ---------- */
-    #loading{
-      position: fixed;
-      inset: 0;
-      z-index: 10000;
-      display: grid;
-      place-items: center;
-      background: radial-gradient(1100px 600px at 50% 25%, rgba(255,255,255,.08), rgba(0,0,0,.96));
-      padding:
-        calc(var(--pad) + var(--safeT))
-        calc(var(--pad) + var(--safeR))
-        calc(var(--pad) + var(--safeB))
-        calc(var(--pad) + var(--safeL));
-    }
-    .logo-only{
-      width: min(240px, 66vw);
-      aspect-ratio: 1 / 1;
-      border-radius: 26px;
-      border: 1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.03);
-      backdrop-filter: blur(10px);
-      display: grid;
-      place-items: center;
-      overflow: hidden;
-      box-shadow: 0 18px 60px rgba(0,0,0,.55);
-      animation: pulse 1.3s ease-in-out infinite;
-    }
-    .logo-only img{
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      transform: scale(1.06);
-      filter: contrast(1.08) brightness(1.05);
-    }
-    @keyframes pulse{
-      0%,100%{ transform: translateY(0); opacity: .98; }
-      50%{ transform: translateY(-2px); opacity: 1; }
-    }
-    @media (prefers-reduced-motion: reduce){
-      .logo-only{ animation:none; }
-    }
-
-    /* ---------- HUD ---------- */
-    #hud{
-      position: fixed;
-      left: calc(var(--pad) + var(--safeL));
-      right: calc(var(--pad) + var(--safeR));
-      top: calc(var(--pad) + var(--safeT));
-      z-index: 9998;
+    /* Instruction overlay */
+    .hud{
+      position:fixed;
+      left:0; right:0; top:0;
+      padding: max(14px, env(safe-area-inset-top)) 14px 14px 14px;
+      z-index:50;
       display:flex;
       gap:10px;
-      justify-content: space-between;
+      align-items:flex-start;
+      justify-content:space-between;
+      pointer-events:none; /* allow camera gestures */
+    }
+    .hud-card{
+      pointer-events:auto;
+      max-width: min(560px, 92vw);
+      background: var(--card);
+      border:1px solid var(--border);
+      backdrop-filter: blur(10px);
+      border-radius: 14px;
+      padding: 12px 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+    .hud-title{
+      font-weight: 700;
+      font-size: 14px;
+      margin: 0 0 6px 0;
+      letter-spacing: .2px;
+    }
+    .hud-text{
+      margin:0;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+    .hud-actions{
+      pointer-events:auto;
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
+    .btn{
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      color: var(--fg);
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-weight: 650;
+      font-size: 13px;
+      cursor:pointer;
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:active{ transform: translateY(1px); }
+
+    /* bottom hint */
+    .bottom-hint{
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      padding: 10px 14px max(14px, env(safe-area-inset-bottom)) 14px;
+      z-index: 50;
+      display:flex;
+      justify-content:center;
       pointer-events:none;
     }
     .pill{
       pointer-events:auto;
       background: rgba(0,0,0,.55);
-      border: 1px solid rgba(255,255,255,.18);
-      border-radius: 999px;
-      padding: 8px 12px;
+      border:1px solid var(--border);
       backdrop-filter: blur(10px);
-      font-size: 13px;
-      line-height: 1;
-      user-select:none;
-      max-width: 70vw;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      border-radius:999px;
+      padding: 10px 14px;
+      font-size: 12.5px;
+      color: var(--muted);
     }
-    body.waiting #hud{ display:none; }
 
-    /* ---------- INSTRUCTIONS MODAL ---------- */
-    #modal{
-      position: fixed;
-      inset: 0;
-      z-index: 9999;
-      display: none;
-      place-items: end center; /* bottom sheet mobile */
-      background: rgba(0,0,0,.50);
-      padding:
-        calc(var(--pad) + var(--safeT))
-        calc(var(--pad) + var(--safeR))
-        calc(var(--pad) + var(--safeB))
-        calc(var(--pad) + var(--safeL));
-    }
-    .sheet{
-      width: 100%;
-      border: 1px solid var(--line);
-      border-radius: 22px;
-      padding: 14px 14px 12px;
-      background: rgba(0,0,0,.72);
-      backdrop-filter: blur(12px);
-      box-shadow: 0 18px 60px rgba(0,0,0,.55);
-    }
-    .handle{
-      width: 42px; height: 4px;
-      border-radius: 999px;
-      background: rgba(255,255,255,.22);
-      margin: 2px auto 10px;
-    }
-    .sheet h2{
-      margin: 0 0 8px;
-      font-size: 15px;
-      letter-spacing: .01em;
-      font-weight: 850;
-    }
-    .sheet p, .sheet ol{
-      margin: 0;
-      font-size: 13px;
-      line-height: 1.45;
-      opacity: .92;
-    }
-    .sheet ol{ margin-top: 10px; margin-left: 18px; }
-    .sheet li{ margin: 6px 0; }
-    .sheet b{ color: var(--accent); font-weight: 850; }
-
-    .actions{
-      margin-top: 12px;
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
-    }
-    .btn{
-      width: 100%;
-      border: 1px solid rgba(255,255,255,.18);
-      background: rgba(0,0,0,.55);
-      color: var(--txt);
-      border-radius: 16px;
-      padding: 12px 14px;
-      font-size: 14px;
-      font-weight: 800;
-      backdrop-filter: blur(8px);
-      cursor: pointer;
-      user-select: none;
-    }
-    .btn.primary{
-      border-color: rgba(155,231,255,.45);
-      background: rgba(155,231,255,.14);
-    }
-    .btn:active{ transform: translateY(1px); }
-
-    /* ---------- CONTROLS (mobile-first bottom bar) ---------- */
-    #controls{
-      position: fixed;
-      left: calc(var(--pad) + var(--safeL));
-      right: calc(var(--pad) + var(--safeR));
-      bottom: calc(var(--pad) + var(--safeB));
-      z-index: 9998;
-      display: none;
-      gap: 10px;
-      flex-wrap: wrap;
-      pointer-events: auto;
-      justify-content: center;
-    }
-    body.scanning #controls{ display: flex; }
-
-    .cbtn{
-      border: 1px solid rgba(255,255,255,.18);
-      background: rgba(0,0,0,.55);
-      color: var(--txt);
-      border-radius: 14px;
-      padding: 10px 12px;
-      font-size: 13px;
-      font-weight: 800;
-      backdrop-filter: blur(10px);
-      cursor: pointer;
-      user-select: none;
-      min-width: 98px;
-      text-align: center;
-    }
-    .cbtn:active{ transform: translateY(1px); }
-
-    @media (min-width: 760px){
-      #modal{ place-items: center; }
-      .sheet{ width: min(520px, calc(100% - 28px)); }
-      .actions{ grid-template-columns: 1fr 1fr; }
-      #controls{ justify-content: flex-end; }
-    }
+    /* Make A-Frame canvas fill correctly on mobile */
+    a-scene, canvas { position:fixed !important; inset:0 !important; width:100% !important; height:100% !important; }
   </style>
 </head>
 
-<body class="waiting">
-  <!-- Loading screen -->
-  <section id="loading" aria-hidden="true">
-    <div class="logo-only">
-      <img src="odotnyc-logo.png" alt="OdotNYC logo" />
-    </div>
-  </section>
-
-  <!-- HUD -->
-  <div id="hud">
-    <div class="pill">📷 OdotNYC AR</div>
-    <div class="pill" id="status">Find marker…</div>
-  </div>
-
-  <!-- Controls (shown after scanning starts) -->
-  <div id="controls" aria-label="Model controls">
-    <button class="cbtn" id="pitchUp" type="button">Pitch ▲</button>
-    <button class="cbtn" id="pitchDown" type="button">Pitch ▼</button>
-    <button class="cbtn" id="yawL" type="button">Rotate ↺</button>
-    <button class="cbtn" id="yawR" type="button">Rotate ↻</button>
-    <button class="cbtn" id="scaleDown" type="button">Scale −</button>
-    <button class="cbtn" id="scaleUp" type="button">Scale +</button>
-    <button class="cbtn" id="reset" type="button">Reset</button>
-  </div>
-
-  <!-- Instructions modal -->
-  <section id="modal" role="dialog" aria-modal="true" aria-label="Scan Instructions">
-    <div class="sheet">
-      <div class="handle" aria-hidden="true"></div>
-      <h2>Scan Instructions</h2>
-      <p>When you start scanning, allow camera access if prompted.</p>
-      <ol>
-        <li>Point your camera at the <b>OdotNYC marker</b>.</li>
-        <li>Keep it <b>flat</b> and <b>well-lit</b>.</li>
-        <li>Hold steady — the <b>3D model</b> will appear.</li>
-      </ol>
-      <div class="actions">
-        <button class="btn" id="closeModal" type="button">Not now</button>
-        <button class="btn primary" id="startAR" type="button">Start scanning</button>
+<body>
+  <!-- LOADER (3 seconds) -->
+  <div id="loader" aria-label="Loading">
+    <div class="loader-inner">
+      <div class="glitch-wrap" aria-hidden="true" style="width:min(64vw, 260px);">
+        <!-- base logo -->
+        <img class="logo" src="assets/odotnyc-logo.png" alt="OdotNYC logo" />
       </div>
     </div>
-  </section>
+  </div>
 
-  <!-- AR Scene -->
-  <a-scene
-    embedded
-    vr-mode-ui="enabled:false"
-    renderer="antialias:true; alpha:true; logarithmicDepthBuffer:true"
-    arjs="sourceType:webcam; trackingMethod:best; debugUIEnabled:false;"
-  >
-    <a-entity light="type: ambient; intensity: 0.9"></a-entity>
-    <a-entity light="type: directional; intensity: 0.6" position="1 2 1"></a-entity>
+  <!-- APP -->
+  <div id="app">
+    <div class="hud">
+      <div class="hud-card" id="instructions">
+        <p class="hud-title">Scan the OdotNYC marker</p>
+        <p class="hud-text">
+          Point your camera at the printed marker. Hold steady for a second.
+          The 3D model will lock on top of it.
+        </p>
+      </div>
 
-    <a-assets timeout="45000">
-      <a-asset-item id="odotModel" src="office_005.glb"></a-asset-item>
-    </a-assets>
+      <div class="hud-actions">
+        <button class="btn" id="recenterBtn" type="button">Re-center</button>
+        <button class="btn" id="hideBtn" type="button">Hide tips</button>
+      </div>
+    </div>
 
-    <a-marker
-      id="marker"
-      type="pattern"
-      url="odotnyc.patt"
-      smooth="true"
-      smoothCount="8"
-      smoothTolerance="0.01"
-      smoothThreshold="2"
+    <div class="bottom-hint">
+      <div class="pill" id="statusPill">Camera: initializing…</div>
+    </div>
+
+    <!-- A-FRAME / AR.JS SCENE -->
+    <a-scene
+      embedded
+      vr-mode-ui="enabled: false"
+      renderer="colorManagement:true; physicallyCorrectLights:true; antialias:true; alpha:true"
+      arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
     >
-      <a-entity
-        id="model"
-        gltf-model="#odotModel"
-        position="0 0.05 0"
-        rotation="-90 0 0"
-        scale="0.08 0.08 0.08"
-      ></a-entity>
-    </a-marker>
+      <a-assets>
+        <a-asset-item id="modelGLB" src="assets/model.glb"></a-asset-item>
+      </a-assets>
 
-    <a-entity camera></a-entity>
-  </a-scene>
+      <!-- Marker -->
+      <a-marker
+        id="marker"
+        type="pattern"
+        url="assets/marker.patt"
+      >
+        <!-- 3D Model (adjust scale/rotation/position to fit your marker) -->
+        <a-entity
+          id="model"
+          gltf-model="#modelGLB"
+          position="0 0 0"
+          rotation="0 0 0"
+          scale="0.6 0.6 0.6"
+        ></a-entity>
+      </a-marker>
+
+      <!-- Camera -->
+      <a-entity camera></a-entity>
+    </a-scene>
+  </div>
 
   <script>
-    // --- Fix “half screen” by using real innerHeight as 100vh ---
-    function setRealVH(){
-      const vh = window.innerHeight * 0.01;
-      document.documentElement.style.setProperty('--vh', `${vh}px`);
-    }
-    setRealVH();
-    window.addEventListener('resize', setRealVH, { passive: true });
-    window.addEventListener('orientationchange', () => setTimeout(setRealVH, 200), { passive: true });
+    const loader = document.getElementById("loader");
+    const app = document.getElementById("app");
+    const statusPill = document.getElementById("statusPill");
+    const instructions = document.getElementById("instructions");
+    const hideBtn = document.getElementById("hideBtn");
+    const recenterBtn = document.getElementById("recenterBtn");
+    const marker = document.getElementById("marker");
 
-    const loading = document.getElementById('loading');
-    const modal = document.getElementById('modal');
-    const statusEl = document.getElementById('status');
+    // 1) Loader for 3 seconds
+    window.addEventListener("load", () => {
+      setTimeout(() => {
+        loader.style.display = "none";
+        app.style.display = "block";
 
-    const startARBtn = document.getElementById('startAR');
-    const closeModalBtn = document.getElementById('closeModal');
+        // Some Android devices need a tiny delay before resize kicks in.
+        setTimeout(() => window.dispatchEvent(new Event("resize")), 150);
+      }, 3000);
+    });
 
-    const markerEl = document.getElementById('marker');
-    const assetItem = document.getElementById('odotModel');
-    const modelEl = document.getElementById('model');
+    // 2) Marker detection events
+    marker.addEventListener("markerFound", () => {
+      statusPill.textContent = "Marker found ✅";
+    });
+    marker.addEventListener("markerLost", () => {
+      statusPill.textContent = "Marker lost… aim at the marker";
+    });
 
-    let modelReady = false;
-    let scanningEnabled = false;
+    // 3) UI controls
+    let tipsVisible = true;
+    hideBtn.addEventListener("click", () => {
+      tipsVisible = !tipsVisible;
+      instructions.style.display = tipsVisible ? "block" : "none";
+      hideBtn.textContent = tipsVisible ? "Hide tips" : "Show tips";
+    });
 
-    // Model transform controls
-    const base = { rx: -90, ry: 0, rz: 0, scale: 0.08, y: 0.05 };
-    let pitch = 0;  // +/- adjusts X
-    let yaw = 0;    // +/- adjusts Y
-    let scl = base.scale;
+    // "Re-center" in marker AR usually means: re-acquire marker.
+    // We can quickly show a hint + encourage users to point at marker again.
+    recenterBtn.addEventListener("click", () => {
+      statusPill.textContent = "Re-center: point at marker again";
+      setTimeout(() => {
+        statusPill.textContent = "Aim at the marker";
+      }, 1200);
+    });
 
-    function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
-
-    function applyTransform(){
-      const rx = base.rx + pitch;
-      const ry = base.ry + yaw;
-      modelEl.setAttribute('rotation', `${rx} ${ry} ${base.rz}`);
-      modelEl.setAttribute('scale', `${scl} ${scl} ${scl}`);
-      modelEl.setAttribute('position', `0 ${base.y} 0`);
-    }
-    applyTransform();
-
-    // Splash: exactly 3 seconds, then show modal
+    // 4) Update status when camera is ready (best-effort)
+    // AR.js doesn’t always expose a perfect event, so we do a gentle fallback.
     setTimeout(() => {
-      loading.style.display = 'none';
-      modal.style.display = 'grid';
-      statusEl.textContent = 'Loading model…';
-    }, 3000);
+      if (statusPill.textContent.includes("initializing")) {
+        statusPill.textContent = "Aim at the marker";
+      }
+    }, 4500);
 
-    // Model load status
-    assetItem.addEventListener('loaded', () => {
-      modelReady = true;
-      if (scanningEnabled) statusEl.textContent = 'Find marker…';
-    });
-    assetItem.addEventListener('error', (e) => {
-      console.warn('GLB load error:', e);
-      statusEl.textContent = 'Model failed to load ❌';
-    });
-
-    function startScanning(){
-      modal.style.display = 'none';
-      document.body.classList.remove('waiting');
-      document.body.classList.add('scanning');
-      scanningEnabled = true;
-      statusEl.textContent = modelReady ? 'Find marker…' : 'Loading model…';
-      // give A-Frame a nudge after UI changes
-      window.dispatchEvent(new Event('resize'));
-    }
-
-    startARBtn.addEventListener('click', startScanning);
-    closeModalBtn.addEventListener('click', startScanning);
-
-    // Marker events
-    markerEl.addEventListener('markerFound', () => {
-      statusEl.textContent = modelReady ? 'Marker found 🎯' : 'Marker found (loading…)';
-    });
-    markerEl.addEventListener('markerLost', () => {
-      statusEl.textContent = modelReady ? 'Find marker…' : 'Loading model…';
-    });
-
-    // Controls
-    document.getElementById('pitchUp').addEventListener('click', () => {
-      pitch = clamp(pitch + 7.5, -60, 60);
-      applyTransform();
-    });
-    document.getElementById('pitchDown').addEventListener('click', () => {
-      pitch = clamp(pitch - 7.5, -60, 60);
-      applyTransform();
-    });
-    document.getElementById('yawL').addEventListener('click', () => {
-      yaw -= 15;
-      applyTransform();
-    });
-    document.getElementById('yawR').addEventListener('click', () => {
-      yaw += 15;
-      applyTransform();
-    });
-    document.getElementById('scaleDown').addEventListener('click', () => {
-      scl = clamp(+((scl - 0.01).toFixed(3)), 0.01, 5);
-      applyTransform();
-    });
-    document.getElementById('scaleUp').addEventListener('click', () => {
-      scl = clamp(+((scl + 0.01).toFixed(3)), 0.01, 5);
-      applyTransform();
-    });
-    document.getElementById('reset').addEventListener('click', () => {
-      pitch = 0; yaw = 0; scl = base.scale;
-      applyTransform();
+    // 5) Keep canvas full-screen on orientation changes
+    window.addEventListener("orientationchange", () => {
+      setTimeout(() => window.dispatchEvent(new Event("resize")), 200);
     });
   </script>
 </body>
