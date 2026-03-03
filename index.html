@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>OdotNYC AR BC</title>
+  <title>AR OdotNYC</title>
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
@@ -14,7 +14,7 @@
     html, body { margin: 0; height: 100%; width: 100%; overflow: hidden; background: transparent; }
     a-scene { width: 100vw; height: 100vh; }
 
-    /* Loading overlay */
+    /* 3-second splash overlay */
     #boot {
       position: fixed;
       inset: 0;
@@ -24,100 +24,132 @@
       z-index: 9999;
     }
     #boot .logo {
-      width: min(220px, 60vw);
+      width: min(240px, 64vw);
       height: auto;
-      image-rendering: auto;
     }
 
-    /* Optional hint */
+    /* Optional scanning hint */
     #hint {
       position: fixed;
       left: 50%;
-      bottom: 16px;
+      bottom: calc(16px + env(safe-area-inset-bottom));
       transform: translateX(-50%);
       padding: 10px 12px;
       border-radius: 999px;
-      background: rgba(0,0,0,0.6);
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
       color: #fff;
       font: 14px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial;
-      z-index: 5;
+      z-index: 20;
       pointer-events: none;
       opacity: 0;
       transition: opacity .25s ease;
     }
     #hint.show { opacity: 1; }
-
-    /* Prevent iOS “rubber band” weirdness */
-    body { overscroll-behavior: none; }
   </style>
 </head>
 
 <body>
-  <!-- 3-second loading screen -->
+  <!-- Splash screen (3 seconds) -->
   <div id="boot" aria-label="Loading">
-    <img class="logo" src="assets/odotnyc3final.png" alt="Logo" />
+    <img class="logo" src="./logo.png" alt="OdotNYC Logo" />
   </div>
 
   <div id="hint">Point your camera at the business card marker</div>
 
-  <!-- We keep the scene hidden until after the loading screen -->
   <a-scene
     id="scene"
-    style="display:none;"
     embedded
-    vr-mode-ui="enabled: false"
-    device-orientation-permission-ui="enabled: false"
-    renderer="colorManagement: true; physicallyCorrectLights: true;"
+    vr-mode-ui="enabled:false"
+    device-orientation-permission-ui="enabled:false"
+    renderer="alpha:true; antialias:true; colorManagement:true; physicallyCorrectLights:true;"
+    background="transparent:true"
   >
     <a-assets>
-      <a-asset-item id="glb" src="robot_hand.glb"></a-asset-item>
+      <!-- NEW GLB -->
+      <a-asset-item id="gb" src="./gameboy.glb"></a-asset-item>
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled:false"></a-camera>
 
-    <!-- Target index 0 = first image in targets.mind -->
-    <a-entity id="target" mindar-image-target="targetIndex: 0">
+    <!-- Anchor to marker -->
+    <a-entity id="markerAnchor" mindar-image-target="targetIndex: 0">
       <a-gltf-model
-        src="#glb"
+        id="gbModel"
+        src="#gb"
         position="0 0 0"
         rotation="0 0 0"
-        scale="0.6 0.6 0.6"
+        scale="1 1 1"
       ></a-gltf-model>
 
-      <a-entity light="type: directional; intensity: 0.9" position="0 1 1"></a-entity>
-      <a-entity light="type: ambient; intensity: 0.55"></a-entity>
+      <a-entity light="type: directional; intensity: 1.3" position="0 2 1"></a-entity>
+      <a-entity light="type: ambient; intensity: 0.85"></a-entity>
     </a-entity>
   </a-scene>
 
   <script>
-    (function () {
+    (() => {
+      const sceneEl = document.getElementById("scene");
       const boot = document.getElementById("boot");
       const hint = document.getElementById("hint");
-      const sceneEl = document.getElementById("scene");
+      const gbEl = document.getElementById("gbModel");
 
-      // After 3 seconds: hide boot, show AR scene, then start MindAR
+      // ===== Marker-size + orientation settings =====
+      // Start scale: computed to fit the longest side of your uploaded gameboy.glb to ~90% of marker width.
+      // If it's slightly too big/small on your phone, adjust this number:
+      const FIT_TO_MARKER_SCALE = 0.042;
+
+      // “Laying flat with top facing front”
+      // Commonly, laying flat on the marker plane = rotate X by -90 (or +90 depending on model).
+      // If it lays sideways/upside down, flip these:
+      const ROTATION_DEG = { x: 0, y: 0, z: 0 };
+
+      // Optional small lift so it doesn't clip into the marker plane
+      const POSITION = { x: 0, y: 0.001, z: 0 };
+
+      const degToRad = (d) => d * Math.PI / 180;
+
+      // Start MindAR after splash
       window.addEventListener("load", () => {
         setTimeout(async () => {
-          boot.remove();
-          sceneEl.style.display = "block";
+          if (boot) boot.remove();
           hint.classList.add("show");
 
-          // Initialize MindAR only after showing the AR view
-          // We set the mindar-image component dynamically so camera starts AFTER boot.
           sceneEl.setAttribute("mindar-image", "imageTargetSrc: ./targets.mind; autoStart: true;");
-
-          // Some browsers need a tick before starting
           await new Promise(r => setTimeout(r, 100));
 
-          // Start AR system (safe to call; mindar-image system exists after attribute is set)
           const arSystem = sceneEl.systems["mindar-image-system"];
           if (arSystem && arSystem.start) {
             try { await arSystem.start(); } catch (e) { console.warn("AR start blocked:", e); }
           }
 
-          // Optional: hide hint after a bit
           setTimeout(() => hint.classList.remove("show"), 5000);
         }, 3000);
+      });
+
+      // Apply scale + rotation when GLB loads
+      window.addEventListener("DOMContentLoaded", () => {
+        if (!gbEl) return;
+
+        gbEl.addEventListener("model-loaded", () => {
+          // Scale to marker size
+          gbEl.object3D.scale.set(FIT_TO_MARKER_SCALE, FIT_TO_MARKER_SCALE, FIT_TO_MARKER_SCALE);
+
+          // Lay flat & face forward
+          gbEl.object3D.position.set(POSITION.x, POSITION.y, POSITION.z);
+          gbEl.object3D.rotation.set(
+            degToRad(ROTATION_DEG.x),
+            degToRad(ROTATION_DEG.y),
+            degToRad(ROTATION_DEG.z)
+          );
+
+          console.log("✅ Gameboy loaded. Scale:", FIT_TO_MARKER_SCALE, "Rotation:", ROTATION_DEG);
+        });
+
+        gbEl.addEventListener("model-error", (e) => {
+          console.error("❌ GLB failed to load:", e);
+        });
       });
     })();
   </script>
