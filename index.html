@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>OdotNYC - AR</title>
+  <title>DigiBorg — Diorama Room AR</title>
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
@@ -248,7 +248,7 @@
   </div>
 
   <a-scene
-    mindar-image="imageTargetSrc: assets/targets.mind; autoStart: true; uiScanning: true; uiLoading: true;"
+    mindar-image="imageTargetSrc: targets.mind; autoStart: true; uiScanning: true; uiLoading: true;"
     vr-mode-ui="enabled:false"
     device-orientation-permission-ui="enabled:true"
     renderer="colorManagement:true; physicallyCorrectLights:true;"
@@ -296,6 +296,7 @@
               height="0.03"
               segments-radial="48"
               material="color:#0b0b0b; roughness:0.95; metalness:0.08; opacity:0.92"
+              
             ></a-cylinder>
 
             <a-cylinder
