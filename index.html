@@ -2,156 +2,349 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>AR OdotNYC</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>OdotNYC - AR</title>
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <!-- MindAR (Image Tracking) for A-Frame -->
+  <!-- MindAR (A-Frame integration) -->
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
   <style>
-    html, body { margin: 0; height: 100%; width: 100%; overflow: hidden; background: transparent; }
-    a-scene { width: 100vw; height: 100vh; }
+    html, body { margin:0; height:100%; overflow:hidden; background:#000; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
 
-    /* 3-second splash overlay */
-    #boot {
-      position: fixed;
-      inset: 0;
-      display: grid;
-      place-items: center;
-      background: #000;
-      z-index: 9999;
+    .hint{
+      position:fixed; top:12px; left:12px; right:12px; z-index:9999;
+      padding:10px 12px; border-radius:14px;
+      background:rgba(0,0,0,.45); color:rgba(255,255,255,.92);
+      pointer-events:none;
     }
-    #boot .logo {
-      width: min(240px, 64vw);
-      height: auto;
+    .bubble{
+      position:fixed; top:64px; left:12px; right:12px; z-index:9999;
+      padding:10px 12px; border-radius:14px;
+      background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.18);
+      color:rgba(255,255,255,.95);
+      display:none; pointer-events:none;
     }
 
-    /* Optional scanning hint */
-    #hint {
-      position: fixed;
-      left: 50%;
-      bottom: calc(16px + env(safe-area-inset-bottom));
-      transform: translateX(-50%);
-      padding: 10px 12px;
-      border-radius: 999px;
-      background: rgba(0,0,0,0.55);
+    /* UI */
+    .row2{
+      position:fixed; left:12px; right:12px; bottom:70px; z-index:9999;
+      display:grid; grid-template-columns: 1.2fr 0.8fr; gap:10px;
+      pointer-events:auto;
+    }
+    .ui{
+      position:fixed; left:12px; right:12px; bottom:12px; z-index:9999;
+      display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;
+      pointer-events:auto;
+    }
+    button, select{
+      width:100%;
+      padding:12px 12px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.25);
+      background:rgba(0,0,0,.55);
+      color:#fff;
+      font-weight:800;
       backdrop-filter: blur(6px);
       -webkit-backdrop-filter: blur(6px);
-      color: #fff;
-      font: 14px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial;
-      z-index: 20;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity .25s ease;
     }
-    #hint.show { opacity: 1; }
+    button:active{ transform: scale(0.98); }
   </style>
+
+  <script>
+    // ---------------- Speech helpers ----------------
+    function speak(text){
+      if (!("speechSynthesis" in window)) return;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 1.0; u.pitch = 1.0; u.volume = 1.0;
+      window.speechSynthesis.speak(u);
+    }
+    function showBubble(text, ms=2200){
+      const el = document.getElementById("bubble");
+      el.textContent = text;
+      el.style.display = "block";
+      clearTimeout(window.__bubbleT);
+      window.__bubbleT = setTimeout(()=> el.style.display="none", ms);
+    }
+
+    // ---------------- Marker show/hide ----------------
+    AFRAME.registerComponent("show-on-target", {
+      init(){
+        const target = this.el;
+        const world = document.querySelector("#worldRoot");
+        target.addEventListener("targetFound", () => {
+          world.setAttribute("visible", true);
+          document.getElementById("hint").textContent =
+            "Diorama placed on the logo. Tap the floor to move. Use Sit / Wave / Talk.";
+        });
+        target.addEventListener("targetLost", () => {
+          world.setAttribute("visible", false);
+          document.getElementById("hint").textContent =
+            "Point at the image target (logo) to place the diorama.";
+        });
+      }
+    });
+
+    // ---------------- Tap-to-move (uses camera cursor intersections) ----------------
+    AFRAME.registerComponent("tap-to-move", {
+      schema: {
+        speed:  { type:"number", default: 0.22 }, // diorama speed (tweak)
+        arrive: { type:"number", default: 0.02 }  // stop distance
+      },
+      init(){
+        this.targetPos = null;
+        this.moving = false;
+
+        this.sceneEl = this.el.sceneEl;
+        this.cameraEl = document.querySelector("#cam");
+
+        // Prefer cursor intersections (rayOrigin: mouse / touch) so tap location matters
+        this.getHitPoint = () => {
+          const cursor = this.cameraEl.components.cursor;
+          if (!cursor) return null;
+
+          // A-Frame cursor maintains intersections list for current pointer ray
+          const intersections = cursor.intersections;
+          if (!intersections || intersections.length === 0) return null;
+
+          const hit = intersections[0]; // we only raycast against .walkable
+          if (!hit || !hit.point) return null;
+          return hit.point.clone();
+        };
+
+        // Only handle taps on the canvas (not UI buttons)
+        this.onPointerUp = (e) => {
+          const worldVisible = document.querySelector("#worldRoot").getAttribute("visible");
+          if (!worldVisible) return;
+
+          // Ignore UI taps
+          const t = e.target;
+          if (t && (t.closest && (t.closest("button") || t.closest("select") || t.closest(".ui") || t.closest(".row2")))) {
+            return;
+          }
+
+          const p = this.getHitPoint();
+          if (!p) return;
+
+          this.targetPos = p;
+          this.moving = true;
+          this.el.emit("moveStart");
+        };
+
+        // Bind to scene canvas once it exists
+        this.sceneEl.addEventListener("loaded", () => {
+          const canvas = this.sceneEl.canvas;
+          if (canvas) {
+            canvas.addEventListener("pointerup", this.onPointerUp, { passive:true });
+          }
+        });
+      },
+
+      tick(t, dt){
+        if (!this.moving || !this.targetPos) return;
+
+        const pos = this.el.object3D.position;
+        const dx = this.targetPos.x - pos.x;
+        const dz = this.targetPos.z - pos.z;
+        const dist = Math.hypot(dx, dz);
+
+        if (dist <= this.data.arrive){
+          this.moving = false;
+          this.el.emit("moveStop");
+          return;
+        }
+
+        // face direction of travel
+        this.el.object3D.rotation.y = Math.atan2(dx, dz);
+
+        const step = (this.data.speed * dt) / 1000;
+        pos.x += (dx / dist) * step;
+        pos.z += (dz / dist) * step;
+      },
+
+      remove(){
+        const canvas = this.sceneEl && this.sceneEl.canvas;
+        if (canvas) canvas.removeEventListener("pointerup", this.onPointerUp);
+      }
+    });
+
+    // ---------------- Prototype “actions” (no animation clips required) ----------------
+    AFRAME.registerComponent("simple-actions", {
+      init(){
+        this.el.addEventListener("doSit", () => {
+          // Small crouch + slight tilt (placeholder until real sit animation)
+          this.el.object3D.position.y = 0.012;
+          this.el.object3D.rotation.x = -0.10;
+        });
+
+        this.el.addEventListener("doStand", () => {
+          this.el.object3D.position.y = 0.020;
+          this.el.object3D.rotation.x = 0;
+        });
+
+        this.el.addEventListener("doWave", () => {
+          // Quick wiggle placeholder (replace with real Wave animation later)
+          const o = this.el.object3D;
+          const startY = o.rotation.y;
+          let n = 0;
+          const timer = setInterval(() => {
+            o.rotation.y = startY + (n % 2 === 0 ? 0.22 : -0.22);
+            n++;
+            if (n > 8){
+              clearInterval(timer);
+              o.rotation.y = startY;
+            }
+          }, 70);
+        });
+
+        this.el.addEventListener("moveStart", () => this.el.emit("doStand"));
+      }
+    });
+
+    // ---------------- UI wiring ----------------
+    window.addEventListener("DOMContentLoaded", () => {
+      const character = document.querySelector("#character");
+
+      document.querySelector("#btnSit").addEventListener("click", (e) => {
+        e.stopPropagation();
+        character.emit("doSit");
+      });
+
+      document.querySelector("#btnWave").addEventListener("click", (e) => {
+        e.stopPropagation();
+        character.emit("doWave");
+      });
+
+      document.querySelector("#btnTalk").addEventListener("click", (e) => {
+        e.stopPropagation();
+        const text = document.querySelector("#promptSelect").value;
+        showBubble(text);
+        speak(text);
+      });
+    });
+  </script>
 </head>
 
 <body>
-  <!-- Splash screen (3 seconds) -->
-  <div id="boot" aria-label="Loading">
-    <img class="logo" src="odotnyc3final.png" alt="OdotNYC Logo" />
+  <div id="hint" class="hint">Point at the image target (logo) to place the diorama.</div>
+  <div id="bubble" class="bubble"></div>
+
+  <div class="row2">
+    <select id="promptSelect" aria-label="Choose prompt">
+      <option>Hello — welcome to DigiBorg.</option>
+      <option>Systems online. Explore the room node.</option>
+      <option>Tap the floor to move me around.</option>
+      <option>I can sit, wave, and talk. Add more prompts!</option>
+    </select>
+    <button id="btnTalk" type="button">Talk</button>
   </div>
 
-  <div id="hint">Point your camera at the OdotNYC logo for AR experience.</div>
+  <div class="ui">
+    <button id="btnSit" type="button">Sit</button>
+    <button id="btnWave" type="button">Wave</button>
+    <button type="button" onclick="location.reload()">Reset</button>
+  </div>
 
   <a-scene
-    id="scene"
-    embedded
+    mindar-image="imageTargetSrc: assets/targets.mind; autoStart: true; uiScanning: true; uiLoading: true;"
     vr-mode-ui="enabled:false"
-    device-orientation-permission-ui="enabled:false"
-    renderer="alpha:true; antialias:true; colorManagement:true; physicallyCorrectLights:true;"
-    background="transparent:true"
+    device-orientation-permission-ui="enabled:true"
+    renderer="colorManagement:true; physicallyCorrectLights:true;"
   >
     <a-assets>
-      <!-- NEW GLB -->
-      <a-asset-item id="gb" src="./gameboy.glb"></a-asset-item>
+      <a-asset-item id="roomGLB" src="low_poly_room.glb"></a-asset-item>
+      <a-asset-item id="charGLB" src="character_001.glb"></a-asset-item>
     </a-assets>
 
-    <a-camera position="0 0 0" look-controls="enabled:false"></a-camera>
+    <!--
+      IMPORTANT CHANGE:
+      - Cursor rayOrigin uses the pointer position (mouse/touch), so taps go where you tap.
+      - Raycaster only hits .walkable (our invisible floor plane), so movement is clean.
+    -->
+    <a-camera
+      id="cam"
+      position="0 0 0"
+      look-controls="enabled:false"
+      cursor="rayOrigin: mouse"
+      raycaster="objects: .walkable; far: 10"
+    ></a-camera>
 
-    <!-- Anchor to marker -->
-    <a-entity id="markerAnchor" mindar-image-target="targetIndex: 0">
-      <a-gltf-model
-        id="gbModel"
-        src="#gb"
-        position="0 0 0"
-        rotation="0 0 0"
-        scale="1 1 1"
-      ></a-gltf-model>
+    <!-- Image target anchor -->
+    <a-entity mindar-image-target="targetIndex: 0" show-on-target>
+      <!-- World root sticks to the logo -->
+      <a-entity id="worldRoot" visible="false">
 
-      <a-entity light="type: directional; intensity: 1.3" position="0 2 1"></a-entity>
-      <a-entity light="type: ambient; intensity: 0.85"></a-entity>
+        <!--
+          DIORAMA PLACEMENT (the “sitting on the logo” look)
+          - dioramaLift lifts everything slightly above the target plane to avoid z-fighting
+          - dioramaScale makes the whole world miniature
+        -->
+        <a-entity id="dioramaLift" position="0 0.018 0">
+          <a-entity id="dioramaScale" scale="0.10 0.10 0.10">
+
+            <!-- Lights -->
+            <a-entity light="type: ambient; intensity: 0.9"></a-entity>
+            <a-entity light="type: directional; intensity: 1.0" position="0.6 1 0.4"></a-entity>
+
+            <!-- Base platform (sits on top of the logo) -->
+            <a-cylinder
+              id="base"
+              position="0 -0.010 0"
+              radius="0.58"
+              height="0.03"
+              segments-radial="48"
+              material="color:#0b0b0b; roughness:0.95; metalness:0.08; opacity:0.92"
+            ></a-cylinder>
+
+            <a-cylinder
+              position="0 0.004 0"
+              radius="0.54"
+              height="0.012"
+              segments-radial="48"
+              material="color:#151515; roughness:0.9; metalness:0.12; opacity:0.96"
+            ></a-cylinder>
+
+            <!-- Room -->
+            <!-- Updated placement so it sits centered on the platform -->
+            <a-entity
+              id="room"
+              gltf-model="#roomGLB"
+              position="0 0.020 0"
+              rotation="0 180 0"
+              scale="0.10 0.10 0.10"
+            ></a-entity>
+
+            <!-- Walk collider (invisible) -->
+            <!-- Updated: class walkable + centered a bit above the platform -->
+            <a-plane
+              id="walkPlane"
+              class="walkable"
+              position="0 0.020 0"
+              rotation="-90 0 0"
+              width="0.90"
+              height="0.90"
+              material="opacity:0; transparent:true;"
+            ></a-plane>
+
+            <!-- Character -->
+            <a-entity
+              id="character"
+              gltf-model="#charGLB"
+              position="0 0.020 0"
+              rotation="0 0 0"
+              scale="0.10 0.10 0.10"
+              tap-to-move="speed: 0.22; arrive: 0.02"
+              simple-actions
+            ></a-entity>
+
+          </a-entity>
+        </a-entity>
+
+      </a-entity>
     </a-entity>
+
   </a-scene>
-
-  <script>
-    (() => {
-      const sceneEl = document.getElementById("scene");
-      const boot = document.getElementById("boot");
-      const hint = document.getElementById("hint");
-      const gbEl = document.getElementById("gbModel");
-
-      // ===== Marker-size + orientation settings =====
-      // Start scale: computed to fit the longest side of your uploaded gameboy.glb to ~90% of marker width.
-      // If it's slightly too big/small on your phone, adjust this number:
-      const FIT_TO_MARKER_SCALE = 0.042;
-
-      // “Laying flat with top facing front”
-      // Commonly, laying flat on the marker plane = rotate X by -90 (or +90 depending on model).
-      // If it lays sideways/upside down, flip these:
-      const ROTATION_DEG = { x: 0, y: 0, z: 0 };
-
-      // Optional small lift so it doesn't clip into the marker plane
-      const POSITION = { x: 0, y: 0.001, z: 0 };
-
-      const degToRad = (d) => d * Math.PI / 180;
-
-      // Start MindAR after splash
-      window.addEventListener("load", () => {
-        setTimeout(async () => {
-          if (boot) boot.remove();
-          hint.classList.add("show");
-
-          sceneEl.setAttribute("mindar-image", "imageTargetSrc: ./targets.mind; autoStart: true;");
-          await new Promise(r => setTimeout(r, 100));
-
-          const arSystem = sceneEl.systems["mindar-image-system"];
-          if (arSystem && arSystem.start) {
-            try { await arSystem.start(); } catch (e) { console.warn("AR start blocked:", e); }
-          }
-
-          setTimeout(() => hint.classList.remove("show"), 5000);
-        }, 3000);
-      });
-
-      // Apply scale + rotation when GLB loads
-      window.addEventListener("DOMContentLoaded", () => {
-        if (!gbEl) return;
-
-        gbEl.addEventListener("model-loaded", () => {
-          // Scale to marker size
-          gbEl.object3D.scale.set(FIT_TO_MARKER_SCALE, FIT_TO_MARKER_SCALE, FIT_TO_MARKER_SCALE);
-
-          // Lay flat & face forward
-          gbEl.object3D.position.set(POSITION.x, POSITION.y, POSITION.z);
-          gbEl.object3D.rotation.set(
-            degToRad(ROTATION_DEG.x),
-            degToRad(ROTATION_DEG.y),
-            degToRad(ROTATION_DEG.z)
-          );
-
-          console.log("✅ Gameboy loaded. Scale:", FIT_TO_MARKER_SCALE, "Rotation:", ROTATION_DEG);
-        });
-
-        gbEl.addEventListener("model-error", (e) => {
-          console.error("❌ GLB failed to load:", e);
-        });
-      });
-    })();
-  </script>
 </body>
 </html>
