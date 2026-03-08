@@ -543,18 +543,18 @@
       <div class="scan-card">
         <div class="status-row">
           <div class="status-dot"></div>
-          <div class="status-label" id="statusText">Point camera at a supported image marker</div>
+          <div class="status-label" id="statusText">Point camera at a AR-OdotNYC Vision-Marker</div>
         </div>
 
         <div class="instructions">
-          Scan one of your supported image markers to reveal its animated 3D model.
+          Scan OdotNYC supported vision-markers to reveal its animated 3D model.
           Hold your phone steady and keep the marker well lit for the best tracking.
         </div>
 
         <div class="marker-tags">
-          <div class="marker-tag">Marker 01</div>
-          <div class="marker-tag">Marker 02</div>
-          <div class="marker-tag">Marker 03</div>
+          <div class="marker-tag">Vision-Marker 01</div>
+          <div class="marker-tag">Vision-Marker 02</div>
+          <div class="marker-tag">Vision-Marker 03</div>
         </div>
       </div>
     </div>
@@ -624,8 +624,8 @@
 
     const targetNames = {
       target0: "AR-ODOTNYC 01 Detected",
-      target1: "AR Detected",
-      target2: "Marker 03 Detected"
+      target1: "AR-ODOTNYC 02 Detected",
+      target2: "AR-ODOTNYC 03 Detected"
     };
 
     function showBanner(text) {
@@ -638,7 +638,7 @@
     }
 
     function setIdleStatus() {
-      statusText.textContent = "Point camera at a supported image marker";
+      statusText.textContent = "Point camera at a supported vision-marker";
     }
 
     function bindTargetEvents(id) {
