@@ -1,351 +1,698 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>DigiBorg — Diorama Room AR</title>
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
+  />
+  <title>AR-OdotNYC</title>
+  <meta
+    name="description"
+    content="AR-OdotNYC augmented reality app powered by RoboTechi"
+  />
 
   <!-- A-Frame -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <!-- MindAR (A-Frame integration) -->
+  <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
+
+  <!-- A-Frame extras for glb animation -->
+  <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.5.4/dist/aframe-extras.min.js"></script>
+
+  <!-- MindAR -->
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
   <style>
-    html, body { margin:0; height:100%; overflow:hidden; background:#000; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
-
-    .hint{
-      position:fixed; top:12px; left:12px; right:12px; z-index:9999;
-      padding:10px 12px; border-radius:14px;
-      background:rgba(0,0,0,.45); color:rgba(255,255,255,.92);
-      pointer-events:none;
-    }
-    .bubble{
-      position:fixed; top:64px; left:12px; right:12px; z-index:9999;
-      padding:10px 12px; border-radius:14px;
-      background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.18);
-      color:rgba(255,255,255,.95);
-      display:none; pointer-events:none;
+    :root {
+      --bg: #05070b;
+      --panel: rgba(10, 13, 20, 0.72);
+      --line: rgba(255, 255, 255, 0.08);
+      --text: #f5f7fb;
+      --muted: #aab4c3;
+      --glow: #58a6ff;
+      --glow2: #7b2cff;
+      --danger: #ff4d6d;
     }
 
-    /* UI */
-    .row2{
-      position:fixed; left:12px; right:12px; bottom:70px; z-index:9999;
-      display:grid; grid-template-columns: 1.2fr 0.8fr; gap:10px;
-      pointer-events:auto;
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
     }
-    .ui{
-      position:fixed; left:12px; right:12px; bottom:12px; z-index:9999;
-      display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;
-      pointer-events:auto;
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--text);
     }
-    button, select{
-      width:100%;
-      padding:12px 12px;
-      border-radius:14px;
-      border:1px solid rgba(255,255,255,.25);
-      background:rgba(0,0,0,.55);
-      color:#fff;
-      font-weight:800;
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
+
+    body {
+      position: fixed;
+      inset: 0;
     }
-    button:active{ transform: scale(0.98); }
+
+    /* =========================
+       SPLASH / LOADING SCREEN
+       ========================= */
+    #splash {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        radial-gradient(circle at center, rgba(88, 166, 255, 0.16), transparent 34%),
+        radial-gradient(circle at 50% 45%, rgba(123, 44, 255, 0.13), transparent 26%),
+        linear-gradient(180deg, #030508 0%, #080d14 100%);
+      overflow: hidden;
+      transition: opacity 0.8s ease, visibility 0.8s ease;
+    }
+
+    #splash.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .splash-noise,
+    .splash-scanlines {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .splash-noise {
+      opacity: 0.08;
+      background-image:
+        radial-gradient(circle at 20% 30%, rgba(255,255,255,0.3) 0 0.7px, transparent 0.8px),
+        radial-gradient(circle at 70% 50%, rgba(255,255,255,0.25) 0 0.6px, transparent 0.7px),
+        radial-gradient(circle at 40% 80%, rgba(255,255,255,0.2) 0 0.6px, transparent 0.7px);
+      background-size: 140px 140px, 190px 190px, 170px 170px;
+      animation: noiseShift 0.2s infinite linear;
+    }
+
+    .splash-scanlines {
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(255,255,255,0.03) 0px,
+        rgba(255,255,255,0.03) 1px,
+        transparent 2px,
+        transparent 4px
+      );
+      opacity: 0.12;
+      mix-blend-mode: screen;
+    }
+
+    .splash-inner {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      padding: 24px;
+      width: min(90vw, 420px);
+      text-align: center;
+    }
+
+    .logo-wrap {
+      position: relative;
+      width: min(45vw, 180px);
+      aspect-ratio: 1 / 1;
+      display: grid;
+      place-items: center;
+      filter: drop-shadow(0 0 16px rgba(88,166,255,0.45))
+              drop-shadow(0 0 36px rgba(123,44,255,0.22));
+    }
+
+    .logo-glow-ring {
+      position: absolute;
+      inset: -18%;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle, rgba(88,166,255,0.28) 0%, rgba(123,44,255,0.16) 35%, transparent 68%);
+      filter: blur(10px);
+      animation: pulseGlow 2s ease-in-out infinite;
+    }
+
+    .logo-main,
+    .logo-red,
+    .logo-blue {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    .logo-main {
+      z-index: 3;
+      animation: floatLogo 2.6s ease-in-out infinite;
+    }
+
+    .logo-red {
+      z-index: 2;
+      opacity: 0.38;
+      mix-blend-mode: screen;
+      transform: translate(2px, 0);
+      filter: hue-rotate(-18deg) saturate(1.4);
+      animation: glitchRed 0.24s infinite steps(2, end);
+    }
+
+    .logo-blue {
+      z-index: 1;
+      opacity: 0.42;
+      mix-blend-mode: screen;
+      transform: translate(-2px, 0);
+      filter: hue-rotate(30deg) saturate(1.35);
+      animation: glitchBlue 0.22s infinite steps(2, end);
+    }
+
+    .app-name {
+      position: relative;
+      z-index: 5;
+      font-size: clamp(1.15rem, 4vw, 1.7rem);
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      text-shadow:
+        0 0 10px rgba(88,166,255,0.5),
+        0 0 20px rgba(123,44,255,0.25);
+      animation: textFlicker 2s infinite;
+    }
+
+    .boot-line {
+      position: relative;
+      z-index: 5;
+      font-size: 0.86rem;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      opacity: 0.92;
+    }
+
+    /* =========================
+       APP UI
+       ========================= */
+    #appShell {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .top-ui {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 20;
+      padding:
+        calc(env(safe-area-inset-top) + 10px)
+        14px
+        10px;
+      display: flex;
+      justify-content: center;
+      pointer-events: none;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.52), transparent);
+    }
+
+    .brand-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(8, 12, 18, 0.52);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      max-width: min(94vw, 560px);
+    }
+
+    .brand-pill img {
+      width: 26px;
+      height: 26px;
+      object-fit: contain;
+      border-radius: 50%;
+      box-shadow: 0 0 12px rgba(88,166,255,0.28);
+    }
+
+    .brand-text {
+      min-width: 0;
+    }
+
+    .brand-title {
+      font-size: 0.88rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .brand-sub {
+      margin-top: 2px;
+      font-size: 0.72rem;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bottom-ui {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 20;
+      padding:
+        12px
+        14px
+        calc(env(safe-area-inset-bottom) + 14px);
+      display: flex;
+      justify-content: center;
+      pointer-events: none;
+      background: linear-gradient(to top, rgba(0,0,0,0.64), transparent);
+    }
+
+    .scan-card {
+      width: min(94vw, 640px);
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.28);
+      padding: 14px 14px 15px;
+    }
+
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #45d483;
+      box-shadow: 0 0 12px rgba(69, 212, 131, 0.7);
+      flex: 0 0 auto;
+    }
+
+    .status-label {
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+
+    .instructions {
+      font-size: 0.84rem;
+      line-height: 1.45;
+      color: var(--muted);
+    }
+
+    .marker-tags {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .marker-tag {
+      font-size: 0.74rem;
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.04);
+      color: #d6ddeb;
+    }
+
+    .focus-frame {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: min(58vw, 280px);
+      aspect-ratio: 1 / 1;
+      transform: translate(-50%, -50%);
+      z-index: 15;
+      border: 2px solid rgba(255,255,255,0.12);
+      border-radius: 22px;
+      box-shadow:
+        inset 0 0 0 1px rgba(88,166,255,0.08),
+        0 0 30px rgba(88,166,255,0.06);
+      pointer-events: none;
+    }
+
+    .focus-frame::before,
+    .focus-frame::after,
+    .focus-frame span::before,
+    .focus-frame span::after {
+      content: "";
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      border-color: rgba(88,166,255,0.85);
+      border-style: solid;
+      filter: drop-shadow(0 0 8px rgba(88,166,255,0.4));
+    }
+
+    .focus-frame::before {
+      top: -2px;
+      left: -2px;
+      border-width: 3px 0 0 3px;
+      border-top-left-radius: 18px;
+    }
+
+    .focus-frame::after {
+      top: -2px;
+      right: -2px;
+      border-width: 3px 3px 0 0;
+      border-top-right-radius: 18px;
+    }
+
+    .focus-frame span::before {
+      bottom: -2px;
+      left: -2px;
+      border-width: 0 0 3px 3px;
+      border-bottom-left-radius: 18px;
+    }
+
+    .focus-frame span::after {
+      bottom: -2px;
+      right: -2px;
+      border-width: 0 3px 3px 0;
+      border-bottom-right-radius: 18px;
+    }
+
+    .target-banner {
+      position: fixed;
+      left: 50%;
+      top: calc(env(safe-area-inset-top) + 74px);
+      transform: translateX(-50%);
+      z-index: 30;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(88,166,255,0.22);
+      background: rgba(7, 12, 18, 0.82);
+      backdrop-filter: blur(12px);
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      box-shadow: 0 14px 32px rgba(0,0,0,0.25);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    .target-banner.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Improve touch mobile visual space */
+    @media (max-width: 520px) {
+      .logo-wrap {
+        width: min(52vw, 170px);
+      }
+
+      .focus-frame {
+        width: min(70vw, 250px);
+        border-radius: 18px;
+      }
+
+      .scan-card {
+        border-radius: 18px;
+      }
+
+      .instructions {
+        font-size: 0.8rem;
+      }
+    }
+
+    @media (max-height: 700px) {
+      .focus-frame {
+        width: min(48vw, 210px);
+      }
+    }
+
+    /* =========================
+       ANIMATIONS
+       ========================= */
+    @keyframes pulseGlow {
+      0%, 100% {
+        transform: scale(0.96);
+        opacity: 0.72;
+      }
+      50% {
+        transform: scale(1.06);
+        opacity: 1;
+      }
+    }
+
+    @keyframes floatLogo {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-4px); }
+    }
+
+    @keyframes glitchRed {
+      0%   { transform: translate(0px, 0px); opacity: 0.22; }
+      20%  { transform: translate(2px, -1px); opacity: 0.42; }
+      40%  { transform: translate(-1px, 1px); opacity: 0.26; }
+      60%  { transform: translate(3px, 0px); opacity: 0.45; }
+      80%  { transform: translate(-2px, 1px); opacity: 0.2; }
+      100% { transform: translate(1px, -1px); opacity: 0.35; }
+    }
+
+    @keyframes glitchBlue {
+      0%   { transform: translate(0px, 0px); opacity: 0.18; }
+      20%  { transform: translate(-2px, 1px); opacity: 0.34; }
+      40%  { transform: translate(1px, -1px); opacity: 0.24; }
+      60%  { transform: translate(-3px, 0px); opacity: 0.36; }
+      80%  { transform: translate(2px, -1px); opacity: 0.18; }
+      100% { transform: translate(-1px, 1px); opacity: 0.3; }
+    }
+
+    @keyframes textFlicker {
+      0%, 100% { opacity: 1; }
+      8% { opacity: 0.84; }
+      10% { opacity: 1; }
+      28% { opacity: 0.92; }
+      30% { opacity: 1; }
+      56% { opacity: 0.88; }
+      58% { opacity: 1; }
+    }
+
+    @keyframes noiseShift {
+      0% { transform: translate(0, 0); }
+      25% { transform: translate(2px, -1px); }
+      50% { transform: translate(-1px, 2px); }
+      75% { transform: translate(1px, 1px); }
+      100% { transform: translate(0, 0); }
+    }
   </style>
-
-  <script>
-    // ---------------- Speech helpers ----------------
-    function speak(text){
-      if (!("speechSynthesis" in window)) return;
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.rate = 1.0; u.pitch = 1.0; u.volume = 1.0;
-      window.speechSynthesis.speak(u);
-    }
-    function showBubble(text, ms=2200){
-      const el = document.getElementById("bubble");
-      el.textContent = text;
-      el.style.display = "block";
-      clearTimeout(window.__bubbleT);
-      window.__bubbleT = setTimeout(()=> el.style.display="none", ms);
-    }
-
-    // ---------------- Marker show/hide ----------------
-    AFRAME.registerComponent("show-on-target", {
-      init(){
-        const target = this.el;
-        const world = document.querySelector("#worldRoot");
-        target.addEventListener("targetFound", () => {
-          world.setAttribute("visible", true);
-          document.getElementById("hint").textContent =
-            "Diorama placed on the logo. Tap the floor to move. Use Sit / Wave / Talk.";
-        });
-        target.addEventListener("targetLost", () => {
-          world.setAttribute("visible", false);
-          document.getElementById("hint").textContent =
-            "Point at the image target (logo) to place the diorama.";
-        });
-      }
-    });
-
-    // ---------------- Tap-to-move (uses camera cursor intersections) ----------------
-    AFRAME.registerComponent("tap-to-move", {
-      schema: {
-        speed:  { type:"number", default: 0.22 }, // diorama speed (tweak)
-        arrive: { type:"number", default: 0.02 }  // stop distance
-      },
-      init(){
-        this.targetPos = null;
-        this.moving = false;
-
-        this.sceneEl = this.el.sceneEl;
-        this.cameraEl = document.querySelector("#cam");
-
-        // Prefer cursor intersections (rayOrigin: mouse / touch) so tap location matters
-        this.getHitPoint = () => {
-          const cursor = this.cameraEl.components.cursor;
-          if (!cursor) return null;
-
-          // A-Frame cursor maintains intersections list for current pointer ray
-          const intersections = cursor.intersections;
-          if (!intersections || intersections.length === 0) return null;
-
-          const hit = intersections[0]; // we only raycast against .walkable
-          if (!hit || !hit.point) return null;
-          return hit.point.clone();
-        };
-
-        // Only handle taps on the canvas (not UI buttons)
-        this.onPointerUp = (e) => {
-          const worldVisible = document.querySelector("#worldRoot").getAttribute("visible");
-          if (!worldVisible) return;
-
-          // Ignore UI taps
-          const t = e.target;
-          if (t && (t.closest && (t.closest("button") || t.closest("select") || t.closest(".ui") || t.closest(".row2")))) {
-            return;
-          }
-
-          const p = this.getHitPoint();
-          if (!p) return;
-
-          this.targetPos = p;
-          this.moving = true;
-          this.el.emit("moveStart");
-        };
-
-        // Bind to scene canvas once it exists
-        this.sceneEl.addEventListener("loaded", () => {
-          const canvas = this.sceneEl.canvas;
-          if (canvas) {
-            canvas.addEventListener("pointerup", this.onPointerUp, { passive:true });
-          }
-        });
-      },
-
-      tick(t, dt){
-        if (!this.moving || !this.targetPos) return;
-
-        const pos = this.el.object3D.position;
-        const dx = this.targetPos.x - pos.x;
-        const dz = this.targetPos.z - pos.z;
-        const dist = Math.hypot(dx, dz);
-
-        if (dist <= this.data.arrive){
-          this.moving = false;
-          this.el.emit("moveStop");
-          return;
-        }
-
-        // face direction of travel
-        this.el.object3D.rotation.y = Math.atan2(dx, dz);
-
-        const step = (this.data.speed * dt) / 1000;
-        pos.x += (dx / dist) * step;
-        pos.z += (dz / dist) * step;
-      },
-
-      remove(){
-        const canvas = this.sceneEl && this.sceneEl.canvas;
-        if (canvas) canvas.removeEventListener("pointerup", this.onPointerUp);
-      }
-    });
-
-    // ---------------- Prototype “actions” (no animation clips required) ----------------
-    AFRAME.registerComponent("simple-actions", {
-      init(){
-        this.el.addEventListener("doSit", () => {
-          // Small crouch + slight tilt (placeholder until real sit animation)
-          this.el.object3D.position.y = 0.012;
-          this.el.object3D.rotation.x = -0.10;
-        });
-
-        this.el.addEventListener("doStand", () => {
-          this.el.object3D.position.y = 0.020;
-          this.el.object3D.rotation.x = 0;
-        });
-
-        this.el.addEventListener("doWave", () => {
-          // Quick wiggle placeholder (replace with real Wave animation later)
-          const o = this.el.object3D;
-          const startY = o.rotation.y;
-          let n = 0;
-          const timer = setInterval(() => {
-            o.rotation.y = startY + (n % 2 === 0 ? 0.22 : -0.22);
-            n++;
-            if (n > 8){
-              clearInterval(timer);
-              o.rotation.y = startY;
-            }
-          }, 70);
-        });
-
-        this.el.addEventListener("moveStart", () => this.el.emit("doStand"));
-      }
-    });
-
-    // ---------------- UI wiring ----------------
-    window.addEventListener("DOMContentLoaded", () => {
-      const character = document.querySelector("#character");
-
-      document.querySelector("#btnSit").addEventListener("click", (e) => {
-        e.stopPropagation();
-        character.emit("doSit");
-      });
-
-      document.querySelector("#btnWave").addEventListener("click", (e) => {
-        e.stopPropagation();
-        character.emit("doWave");
-      });
-
-      document.querySelector("#btnTalk").addEventListener("click", (e) => {
-        e.stopPropagation();
-        const text = document.querySelector("#promptSelect").value;
-        showBubble(text);
-        speak(text);
-      });
-    });
-  </script>
 </head>
-
 <body>
-  <div id="hint" class="hint">Point at the image target (logo) to place the diorama.</div>
-  <div id="bubble" class="bubble"></div>
+  <!-- SPLASH -->
+  <div id="splash" aria-label="Loading screen">
+    <div class="splash-noise"></div>
+    <div class="splash-scanlines"></div>
 
-  <div class="row2">
-    <select id="promptSelect" aria-label="Choose prompt">
-      <option>Hello — welcome to DigiBorg.</option>
-      <option>Systems online. Explore the room node.</option>
-      <option>Tap the floor to move me around.</option>
-      <option>I can sit, wave, and talk. Add more prompts!</option>
-    </select>
-    <button id="btnTalk" type="button">Talk</button>
+    <div class="splash-inner">
+      <div class="logo-wrap">
+        <div class="logo-glow-ring"></div>
+
+        <!-- Replace this with your logo path -->
+        <img class="logo-red" src="assets/odotnyc3final.png" alt="" />
+        <img class="logo-blue" src="./assets/odotnyc3final.png" alt="" />
+        <img class="logo-main" src="./assets/odotnyc3final.png" alt="AR-OdotNYC Logo" />
+      </div>
+
+      <div class="app-name">AR-OdotNYC</div>
+      <div class="boot-line">Loading AR scanner...</div>
+    </div>
   </div>
 
-  <div class="ui">
-    <button id="btnSit" type="button">Sit</button>
-    <button id="btnWave" type="button">Wave</button>
-    <button type="button" onclick="location.reload()">Reset</button>
+  <!-- APP UI OVERLAY -->
+  <div id="appShell">
+    <div class="top-ui">
+      <div class="brand-pill">
+        <img src="./assets/odotnyc3final.png" alt="AR-OdotNYC logo" />
+        <div class="brand-text">
+          <div class="brand-title">AR-OdotNYC</div>
+          <div class="brand-sub">Multi-marker augmented reality experience</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="target-banner" id="targetBanner">Marker Detected</div>
+
+    <div class="focus-frame">
+      <span></span>
+    </div>
+
+    <div class="bottom-ui">
+      <div class="scan-card">
+        <div class="status-row">
+          <div class="status-dot"></div>
+          <div class="status-label" id="statusText">Point camera at a supported image marker</div>
+        </div>
+
+        <div class="instructions">
+          Scan one of your supported image markers to reveal its animated 3D model.
+          Hold your phone steady and keep the marker well lit for the best tracking.
+        </div>
+
+        <div class="marker-tags">
+          <div class="marker-tag">Marker 01</div>
+          <div class="marker-tag">Marker 02</div>
+          <div class="marker-tag">Marker 03</div>
+        </div>
+      </div>
+    </div>
   </div>
 
+  <!-- AR SCENE -->
   <a-scene
-    mindar-image="imageTargetSrc: targets.mind; autoStart: true; uiScanning: true; uiLoading: true;"
-    vr-mode-ui="enabled:false"
-    device-orientation-permission-ui="enabled:true"
-    renderer="colorManagement:true; physicallyCorrectLights:true;"
+    mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; uiScanning: true; uiLoading: true; uiError: true; maxTrack: 2; filterMinCF: 0.001; filterBeta: 0.01"
+    color-space="sRGB"
+    renderer="colorManagement: true, physicallyCorrectLights"
+    embedded
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false"
   >
-    <a-assets>
-      <a-asset-item id="roomGLB" src="low_poly_room.glb"></a-asset-item>
-      <a-asset-item id="charGLB" src="character_001.glb"></a-asset-item>
+    <a-assets timeout="30000">
+      <!-- Replace with your GLB files -->
+      <a-asset-item id="model1" src="retro_ufo.glb"></a-asset-item>
+      <a-asset-item id="model2" src="./assets/model-2.glb"></a-asset-item>
+      <a-asset-item id="model3" src="./assets/model-3.glb"></a-asset-item>
     </a-assets>
 
-    <!--
-      IMPORTANT CHANGE:
-      - Cursor rayOrigin uses the pointer position (mouse/touch), so taps go where you tap.
-      - Raycaster only hits .walkable (our invisible floor plane), so movement is clean.
-    -->
-    <a-camera
-      id="cam"
-      position="0 0 0"
-      look-controls="enabled:false"
-      cursor="rayOrigin: mouse"
-      raycaster="objects: .walkable; far: 10"
-    ></a-camera>
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <!-- Image target anchor -->
-    <a-entity mindar-image-target="targetIndex: 0" show-on-target>
-      <!-- World root sticks to the logo -->
-      <a-entity id="worldRoot" visible="false">
-
-        <!--
-          DIORAMA PLACEMENT (the “sitting on the logo” look)
-          - dioramaLift lifts everything slightly above the target plane to avoid z-fighting
-          - dioramaScale makes the whole world miniature
-        -->
-        <a-entity id="dioramaLift" position="0 0.018 0">
-          <a-entity id="dioramaScale" scale="0.10 0.10 0.10">
-
-            <!-- Lights -->
-            <a-entity light="type: ambient; intensity: 0.9"></a-entity>
-            <a-entity light="type: directional; intensity: 1.0" position="0.6 1 0.4"></a-entity>
-
-            <!-- Base platform (sits on top of the logo) -->
-            <a-cylinder
-              id="base"
-              position="0 -0.010 0"
-              radius="0.58"
-              height="0.03"
-              segments-radial="48"
-              material="color:#0b0b0b; roughness:0.95; metalness:0.08; opacity:0.92"
-              
-            ></a-cylinder>
-
-            <a-cylinder
-              position="0 0.004 0"
-              radius="0.54"
-              height="0.012"
-              segments-radial="48"
-              material="color:#151515; roughness:0.9; metalness:0.12; opacity:0.96"
-            ></a-cylinder>
-
-            <!-- Room -->
-            <!-- Updated placement so it sits centered on the platform -->
-            <a-entity
-              id="room"
-              gltf-model="#roomGLB"
-              position="0 0.020 0"
-              rotation="0 180 0"
-              scale="0.10 0.10 0.10"
-            ></a-entity>
-
-            <!-- Walk collider (invisible) -->
-            <!-- Updated: class walkable + centered a bit above the platform -->
-            <a-plane
-              id="walkPlane"
-              class="walkable"
-              position="0 0.020 0"
-              rotation="-90 0 0"
-              width="0.90"
-              height="0.90"
-              material="opacity:0; transparent:true;"
-            ></a-plane>
-
-            <!-- Character -->
-            <a-entity
-              id="character"
-              gltf-model="#charGLB"
-              position="0 0.020 0"
-              rotation="0 0 0"
-              scale="0.10 0.10 0.10"
-              tap-to-move="speed: 0.22; arrive: 0.02"
-              simple-actions
-            ></a-entity>
-
-          </a-entity>
-        </a-entity>
-
-      </a-entity>
+    <!-- TARGET 0 -->
+    <a-entity id="target0" mindar-image-target="targetIndex: 0">
+      <a-gltf-model
+        src="#model1"
+        position="0 0 0.1"
+        rotation="0 0 0"
+        scale="0.2 0.2 0.2"
+        animation-mixer="clip: *; loop: repeat"
+      ></a-gltf-model>
     </a-entity>
 
+    <!-- TARGET 1 -->
+    <a-entity id="target1" mindar-image-target="targetIndex: 1">
+      <a-gltf-model
+        src="#model2"
+        position="0 0 0.1"
+        rotation="0 0 0"
+        scale="0.2 0.2 0.2"
+        animation-mixer="clip: *; loop: repeat"
+      ></a-gltf-model>
+    </a-entity>
+
+    <!-- TARGET 2 -->
+    <a-entity id="target2" mindar-image-target="targetIndex: 2">
+      <a-gltf-model
+        src="#model3"
+        position="0 0 0.1"
+        rotation="0 0 0"
+        scale="0.2 0.2 0.2"
+        animation-mixer="clip: *; loop: repeat"
+      ></a-gltf-model>
+    </a-entity>
+
+    <!-- LIGHTING -->
+    <a-light type="ambient" intensity="1"></a-light>
+    <a-light type="directional" intensity="1" position="1 2 1"></a-light>
   </a-scene>
+
+  <script>
+    const splash = document.getElementById("splash");
+    const statusText = document.getElementById("statusText");
+    const targetBanner = document.getElementById("targetBanner");
+    const sceneEl = document.querySelector("a-scene");
+
+    const targetNames = {
+      target0: "AR-ODOTNYC 01 Detected",
+      target1: "AR Detected",
+      target2: "Marker 03 Detected"
+    };
+
+    function showBanner(text) {
+      targetBanner.textContent = text;
+      targetBanner.classList.add("show");
+    }
+
+    function hideBanner() {
+      targetBanner.classList.remove("show");
+    }
+
+    function setIdleStatus() {
+      statusText.textContent = "Point camera at a supported image marker";
+    }
+
+    function bindTargetEvents(id) {
+      const target = document.getElementById(id);
+      if (!target) return;
+
+      target.addEventListener("targetFound", () => {
+        const name = targetNames[id] || "AR OdotNYC Marker Detected";
+        statusText.textContent = name;
+        showBanner(name);
+      });
+
+      target.addEventListener("targetLost", () => {
+        setIdleStatus();
+        hideBanner();
+      });
+    }
+
+    bindTargetEvents("target0");
+    bindTargetEvents("target1");
+    bindTargetEvents("target2");
+
+    // Start after 3 second splash
+    window.addEventListener("load", () => {
+      setTimeout(async () => {
+        splash.classList.add("hidden");
+
+        try {
+          await sceneEl.systems["mindar-image-system"].start();
+        } catch (error) {
+          console.error("MindAR start error:", error);
+          statusText.textContent = "Camera start failed. Check permissions and HTTPS.";
+        }
+      }, 3000);
+    });
+
+    // Prevent accidental pinch zoom / bounce issues on iOS
+    document.addEventListener(
+      "gesturestart",
+      function (e) {
+        e.preventDefault();
+      },
+      { passive: false }
+    );
+
+    document.addEventListener(
+      "touchmove",
+      function (e) {
+        if (e.scale !== undefined && e.scale !== 1) {
+          e.preventDefault();
+        }
+      },
+      { passive: false }
+    );
+  </script>
 </body>
 </html>
