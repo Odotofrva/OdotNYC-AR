@@ -115,6 +115,9 @@ A-Frame handles:
 
 Animated 3D models are loaded as `.glb` files.
 
+Ufo created by: https://skfb.ly/6VEDP
+Deed: https://creativecommons.org/licenses/by/4.0/
+
 These assets are used because they are:
 
 * efficient for web delivery
