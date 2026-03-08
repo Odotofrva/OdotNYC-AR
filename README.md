@@ -1,6 +1,4 @@
-# AR-OdotNYC
-
-### Open Source Software Documentation
+# AR-OdotNYC v1
 
 **Presented as a RoboTechi Co. product**
 
