@@ -1,698 +1,554 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
-  />
-  <title>AR-OdotNYC</title>
-  <meta
-    name="description"
-    content="AR-OdotNYC augmented reality app powered by RoboTechi"
-  />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>OdotNYC AR App</title>
 
-  <!-- A-Frame -->
-  <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
-
-  <!-- A-Frame extras for glb animation -->
-  <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.5.4/dist/aframe-extras.min.js"></script>
-
-  <!-- MindAR -->
+  <!-- A-Frame + MindAR image tracking -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
   <style>
     :root {
-      --bg: #05070b;
-      --panel: rgba(10, 13, 20, 0.72);
-      --line: rgba(255, 255, 255, 0.08);
-      --text: #f5f7fb;
-      --muted: #aab4c3;
-      --glow: #58a6ff;
-      --glow2: #7b2cff;
-      --danger: #ff4d6d;
+      --bg: #03040a;
+      --panel: rgba(8, 15, 28, 0.78);
+      --panel-strong: rgba(2, 8, 18, 0.92);
+      --cyan: #00f5ff;
+      --violet: #9b5cff;
+      --lime: #a8ff3e;
+      --text: #f4fbff;
+      --muted: #9fb6c6;
+      --danger: #ff3b7a;
     }
 
-    * {
-      box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
-    }
+    * { box-sizing: border-box; }
 
-    html,
-    body {
+    html, body {
       margin: 0;
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: #000;
-      font-family: Arial, Helvetica, sans-serif;
+      background: radial-gradient(circle at top, #111a36 0%, var(--bg) 52%, #000 100%);
       color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
-    body {
+    body::before {
+      content: "";
       position: fixed;
       inset: 0;
-    }
-
-    /* =========================
-       SPLASH / LOADING SCREEN
-       ========================= */
-    #splash {
-      position: fixed;
-      inset: 0;
-      z-index: 9999;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      pointer-events: none;
+      z-index: 1;
       background:
-        radial-gradient(circle at center, rgba(88, 166, 255, 0.16), transparent 34%),
-        radial-gradient(circle at 50% 45%, rgba(123, 44, 255, 0.13), transparent 26%),
-        linear-gradient(180deg, #030508 0%, #080d14 100%);
-      overflow: hidden;
-      transition: opacity 0.8s ease, visibility 0.8s ease;
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 38px 38px;
+      mask-image: radial-gradient(circle at center, black, transparent 78%);
     }
 
-    #splash.hidden {
-      opacity: 0;
-      visibility: hidden;
-      pointer-events: none;
-    }
-
-    .splash-noise,
-    .splash-scanlines {
-      position: absolute;
+    body::after {
+      content: "";
+      position: fixed;
       inset: 0;
       pointer-events: none;
-    }
-
-    .splash-noise {
-      opacity: 0.08;
-      background-image:
-        radial-gradient(circle at 20% 30%, rgba(255,255,255,0.3) 0 0.7px, transparent 0.8px),
-        radial-gradient(circle at 70% 50%, rgba(255,255,255,0.25) 0 0.6px, transparent 0.7px),
-        radial-gradient(circle at 40% 80%, rgba(255,255,255,0.2) 0 0.6px, transparent 0.7px);
-      background-size: 140px 140px, 190px 190px, 170px 170px;
-      animation: noiseShift 0.2s infinite linear;
-    }
-
-    .splash-scanlines {
+      z-index: 2;
       background: repeating-linear-gradient(
         to bottom,
-        rgba(255,255,255,0.03) 0px,
-        rgba(255,255,255,0.03) 1px,
+        rgba(255,255,255,0.025),
+        rgba(255,255,255,0.025) 1px,
         transparent 2px,
-        transparent 4px
+        transparent 7px
       );
-      opacity: 0.12;
       mix-blend-mode: screen;
+      opacity: 0.35;
     }
 
-    .splash-inner {
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 16px;
-      padding: 24px;
-      width: min(90vw, 420px);
-      text-align: center;
-    }
-
-    .logo-wrap {
-      position: relative;
-      width: min(45vw, 180px);
-      aspect-ratio: 1 / 1;
-      display: grid;
-      place-items: center;
-      filter: drop-shadow(0 0 16px rgba(88,166,255,0.45))
-              drop-shadow(0 0 36px rgba(123,44,255,0.22));
-    }
-
-    .logo-glow-ring {
-      position: absolute;
-      inset: -18%;
-      border-radius: 50%;
-      background:
-        radial-gradient(circle, rgba(88,166,255,0.28) 0%, rgba(123,44,255,0.16) 35%, transparent 68%);
-      filter: blur(10px);
-      animation: pulseGlow 2s ease-in-out infinite;
-    }
-
-    .logo-main,
-    .logo-red,
-    .logo-blue {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      user-select: none;
-      pointer-events: none;
-    }
-
-    .logo-main {
-      z-index: 3;
-      animation: floatLogo 2.6s ease-in-out infinite;
-    }
-
-    .logo-red {
-      z-index: 2;
-      opacity: 0.38;
-      mix-blend-mode: screen;
-      transform: translate(2px, 0);
-      filter: hue-rotate(-18deg) saturate(1.4);
-      animation: glitchRed 0.24s infinite steps(2, end);
-    }
-
-    .logo-blue {
-      z-index: 1;
-      opacity: 0.42;
-      mix-blend-mode: screen;
-      transform: translate(-2px, 0);
-      filter: hue-rotate(30deg) saturate(1.35);
-      animation: glitchBlue 0.22s infinite steps(2, end);
-    }
-
-    .app-name {
-      position: relative;
-      z-index: 5;
-      font-size: clamp(1.15rem, 4vw, 1.7rem);
-      font-weight: 700;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      text-shadow:
-        0 0 10px rgba(88,166,255,0.5),
-        0 0 20px rgba(123,44,255,0.25);
-      animation: textFlicker 2s infinite;
-    }
-
-    .boot-line {
-      position: relative;
-      z-index: 5;
-      font-size: 0.86rem;
-      color: var(--muted);
-      letter-spacing: 0.08em;
-      opacity: 0.92;
-    }
-
-    /* =========================
-       APP UI
-       ========================= */
-    #appShell {
+    #app-shell {
       position: fixed;
       inset: 0;
       z-index: 10;
       pointer-events: none;
-    }
-
-    .top-ui {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 20;
-      padding:
-        calc(env(safe-area-inset-top) + 10px)
-        14px
-        10px;
       display: flex;
-      justify-content: center;
-      pointer-events: none;
-      background: linear-gradient(to bottom, rgba(0,0,0,0.52), transparent);
+      flex-direction: column;
+      justify-content: space-between;
+      padding: max(18px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom));
     }
 
-    .brand-pill {
-      display: inline-flex;
+    .topbar, .bottombar, .scan-panel {
+      pointer-events: auto;
+      border: 1px solid rgba(0,245,255,0.28);
+      background: var(--panel);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 0 32px rgba(0,245,255,0.13), inset 0 0 24px rgba(155,92,255,0.08);
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-radius: 22px;
+      padding: 12px 14px;
+      animation: slideDown 700ms ease both;
+    }
+
+    .brand {
+      display: flex;
       align-items: center;
       gap: 10px;
-      padding: 10px 14px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: rgba(8, 12, 18, 0.52);
-      backdrop-filter: blur(10px);
-      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-      max-width: min(94vw, 560px);
-    }
-
-    .brand-pill img {
-      width: 26px;
-      height: 26px;
-      object-fit: contain;
-      border-radius: 50%;
-      box-shadow: 0 0 12px rgba(88,166,255,0.28);
-    }
-
-    .brand-text {
       min-width: 0;
     }
 
-    .brand-title {
-      font-size: 0.88rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
+    .orb {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: conic-gradient(from 180deg, var(--cyan), var(--violet), var(--lime), var(--cyan));
+      box-shadow: 0 0 24px rgba(0,245,255,0.7);
+      position: relative;
+      flex: 0 0 auto;
+      animation: pulseOrb 2.4s infinite ease-in-out;
+    }
+
+    .orb::after {
+      content: "";
+      position: absolute;
+      inset: 5px;
+      border-radius: inherit;
+      background: #06101e;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: clamp(0.95rem, 3.8vw, 1.18rem);
+      letter-spacing: 0.09em;
       text-transform: uppercase;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    .brand-sub {
-      margin-top: 2px;
+    .brand span {
+      display: block;
+      color: var(--muted);
       font-size: 0.72rem;
-      color: var(--muted);
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    .status-pill {
+      border: 1px solid rgba(168,255,62,0.45);
+      color: var(--lime);
+      border-radius: 999px;
+      padding: 8px 11px;
+      font-size: 0.7rem;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      box-shadow: inset 0 0 18px rgba(168,255,62,0.08);
     }
 
-    .bottom-ui {
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 20;
-      padding:
-        12px
-        14px
-        calc(env(safe-area-inset-bottom) + 14px);
-      display: flex;
-      justify-content: center;
+    .center-hud {
+      flex: 1;
+      display: grid;
+      place-items: center;
       pointer-events: none;
-      background: linear-gradient(to top, rgba(0,0,0,0.64), transparent);
     }
 
-    .scan-card {
-      width: min(94vw, 640px);
+    .reticle {
+      width: min(76vw, 360px);
+      aspect-ratio: 1;
+      border-radius: 34px;
+      position: relative;
+      opacity: 0.86;
+      filter: drop-shadow(0 0 22px rgba(0,245,255,0.35));
+    }
+
+    .reticle::before,
+    .reticle::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      border: 2px solid rgba(0,245,255,0.85);
+      clip-path: polygon(0 0, 30% 0, 30% 8px, 8px 8px, 8px 30%, 0 30%, 0 0,
+                         70% 0, 100% 0, 100% 30%, calc(100% - 8px) 30%, calc(100% - 8px) 8px, 70% 8px,
+                         70% 100%, 100% 100%, 100% 70%, calc(100% - 8px) 70%, calc(100% - 8px) calc(100% - 8px), 70% calc(100% - 8px),
+                         0 70%, 8px 70%, 8px calc(100% - 8px), 30% calc(100% - 8px), 30% 100%, 0 100%);
+    }
+
+    .reticle::after {
+      inset: 18px;
+      border-color: rgba(155,92,255,0.55);
+      animation: reticlePulse 1.7s infinite ease-in-out;
+    }
+
+    .scan-line {
+      position: absolute;
+      left: 10%;
+      right: 10%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--lime), var(--cyan), transparent);
+      box-shadow: 0 0 18px var(--cyan);
+      animation: scanMove 2.2s infinite ease-in-out;
+    }
+
+    .bottombar {
+      border-radius: 24px;
+      padding: 14px;
+      animation: slideUp 700ms ease both;
+    }
+
+    .scan-panel {
       border-radius: 20px;
-      border: 1px solid var(--line);
-      background: var(--panel);
-      backdrop-filter: blur(14px);
-      box-shadow: 0 20px 50px rgba(0,0,0,0.28);
-      padding: 14px 14px 15px;
-    }
-
-    .status-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 8px;
-      flex-wrap: wrap;
-    }
-
-    .status-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #45d483;
-      box-shadow: 0 0 12px rgba(69, 212, 131, 0.7);
-      flex: 0 0 auto;
-    }
-
-    .status-label {
-      font-size: 0.9rem;
-      font-weight: 700;
-      letter-spacing: 0.03em;
-    }
-
-    .instructions {
-      font-size: 0.84rem;
-      line-height: 1.45;
-      color: var(--muted);
-    }
-
-    .marker-tags {
-      margin-top: 10px;
-      display: flex;
-      flex-wrap: wrap;
+      padding: 14px;
+      margin-bottom: 12px;
+      display: grid;
       gap: 8px;
     }
 
-    .marker-tag {
-      font-size: 0.74rem;
-      padding: 7px 10px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,0.04);
-      color: #d6ddeb;
-    }
-
-    .focus-frame {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      width: min(58vw, 280px);
-      aspect-ratio: 1 / 1;
-      transform: translate(-50%, -50%);
-      z-index: 15;
-      border: 2px solid rgba(255,255,255,0.12);
-      border-radius: 22px;
-      box-shadow:
-        inset 0 0 0 1px rgba(88,166,255,0.08),
-        0 0 30px rgba(88,166,255,0.06);
-      pointer-events: none;
-    }
-
-    .focus-frame::before,
-    .focus-frame::after,
-    .focus-frame span::before,
-    .focus-frame span::after {
-      content: "";
-      position: absolute;
-      width: 28px;
-      height: 28px;
-      border-color: rgba(88,166,255,0.85);
-      border-style: solid;
-      filter: drop-shadow(0 0 8px rgba(88,166,255,0.4));
-    }
-
-    .focus-frame::before {
-      top: -2px;
-      left: -2px;
-      border-width: 3px 0 0 3px;
-      border-top-left-radius: 18px;
-    }
-
-    .focus-frame::after {
-      top: -2px;
-      right: -2px;
-      border-width: 3px 3px 0 0;
-      border-top-right-radius: 18px;
-    }
-
-    .focus-frame span::before {
-      bottom: -2px;
-      left: -2px;
-      border-width: 0 0 3px 3px;
-      border-bottom-left-radius: 18px;
-    }
-
-    .focus-frame span::after {
-      bottom: -2px;
-      right: -2px;
-      border-width: 0 3px 3px 0;
-      border-bottom-right-radius: 18px;
-    }
-
-    .target-banner {
-      position: fixed;
-      left: 50%;
-      top: calc(env(safe-area-inset-top) + 74px);
-      transform: translateX(-50%);
-      z-index: 30;
-      padding: 10px 14px;
-      border-radius: 999px;
-      border: 1px solid rgba(88,166,255,0.22);
-      background: rgba(7, 12, 18, 0.82);
-      backdrop-filter: blur(12px);
-      font-size: 0.82rem;
-      font-weight: 700;
-      letter-spacing: 0.05em;
+    .scan-panel h2 {
+      margin: 0;
+      font-size: 1rem;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
-      box-shadow: 0 14px 32px rgba(0,0,0,0.25);
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.25s ease, transform 0.25s ease;
     }
 
-    .target-banner.show {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
+    .scan-panel p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 0.9rem;
     }
 
-    /* Improve touch mobile visual space */
-    @media (max-width: 520px) {
-      .logo-wrap {
-        width: min(52vw, 170px);
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    button {
+      border: 0;
+      color: var(--text);
+      border-radius: 17px;
+      padding: 13px 14px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, rgba(0,245,255,0.2), rgba(155,92,255,0.28));
+      border: 1px solid rgba(0,245,255,0.32);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35), inset 0 0 18px rgba(255,255,255,0.04);
+      cursor: pointer;
+      transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+    }
+
+    button:active {
+      transform: scale(0.96);
+      background: linear-gradient(135deg, rgba(168,255,62,0.28), rgba(0,245,255,0.2));
+      box-shadow: 0 0 24px rgba(168,255,62,0.28);
+    }
+
+    .secondary {
+      background: rgba(255,255,255,0.055);
+      color: var(--muted);
+    }
+
+    #message {
+      color: var(--lime);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.11em;
+      margin-top: 10px;
+      min-height: 18px;
+    }
+
+    .hidden { display: none !important; }
+
+    #start-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      background:
+        radial-gradient(circle at 30% 20%, rgba(0,245,255,0.22), transparent 28%),
+        radial-gradient(circle at 75% 70%, rgba(155,92,255,0.25), transparent 30%),
+        linear-gradient(145deg, #02040a, #071326 45%, #000);
+    }
+
+    .start-card {
+      width: min(100%, 520px);
+      border: 1px solid rgba(0,245,255,0.34);
+      background: var(--panel-strong);
+      border-radius: 30px;
+      padding: 24px;
+      text-align: center;
+      box-shadow: 0 0 60px rgba(0,245,255,0.18);
+      animation: bootGlow 800ms ease both;
+    }
+
+    .start-card .logo {
+      width: 86px;
+      height: 86px;
+      border-radius: 28px;
+      margin: 0 auto 18px;
+      display: grid;
+      place-items: center;
+      color: #06101e;
+      font-weight: 1000;
+      font-size: 1.35rem;
+      letter-spacing: -0.08em;
+      background: linear-gradient(135deg, var(--cyan), var(--lime));
+      box-shadow: 0 0 38px rgba(0,245,255,0.55);
+    }
+
+    .start-card h2 {
+      margin: 0 0 8px;
+      font-size: clamp(1.65rem, 8vw, 3rem);
+      line-height: 0.95;
+      text-transform: uppercase;
+      letter-spacing: -0.08em;
+    }
+
+    .start-card p {
+      margin: 0 auto 20px;
+      color: var(--muted);
+      max-width: 34rem;
+      line-height: 1.5;
+    }
+
+    .start-card button {
+      width: 100%;
+      font-size: 0.95rem;
+      padding: 16px;
+      background: linear-gradient(135deg, var(--cyan), var(--violet));
+    }
+
+    .mini-note {
+      margin-top: 14px;
+      color: rgba(244,251,255,0.55);
+      font-size: 0.76rem;
+      line-height: 1.35;
+    }
+
+    a-scene {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+    }
+
+    @keyframes scanMove {
+      0%, 100% { top: 18%; opacity: 0.2; }
+      50% { top: 82%; opacity: 1; }
+    }
+
+    @keyframes reticlePulse {
+      0%, 100% { transform: scale(1); opacity: 0.45; }
+      50% { transform: scale(0.92); opacity: 1; }
+    }
+
+    @keyframes pulseOrb {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+    }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-18px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes bootGlow {
+      from { opacity: 0; transform: scale(0.94); filter: blur(6px); }
+      to { opacity: 1; transform: scale(1); filter: blur(0); }
+    }
+
+    @media (min-width: 760px) {
+      #app-shell { padding: 24px; }
+      .bottombar {
+        width: min(540px, 100%);
+        align-self: center;
       }
-
-      .focus-frame {
-        width: min(70vw, 250px);
-        border-radius: 18px;
-      }
-
-      .scan-card {
-        border-radius: 18px;
-      }
-
-      .instructions {
-        font-size: 0.8rem;
+      .topbar {
+        width: min(900px, 100%);
+        align-self: center;
       }
     }
 
-    @media (max-height: 700px) {
-      .focus-frame {
-        width: min(48vw, 210px);
-      }
-    }
-
-    /* =========================
-       ANIMATIONS
-       ========================= */
-    @keyframes pulseGlow {
-      0%, 100% {
-        transform: scale(0.96);
-        opacity: 0.72;
-      }
-      50% {
-        transform: scale(1.06);
-        opacity: 1;
-      }
-    }
-
-    @keyframes floatLogo {
-      0%, 100% { transform: translateY(0px); }
-      50% { transform: translateY(-4px); }
-    }
-
-    @keyframes glitchRed {
-      0%   { transform: translate(0px, 0px); opacity: 0.22; }
-      20%  { transform: translate(2px, -1px); opacity: 0.42; }
-      40%  { transform: translate(-1px, 1px); opacity: 0.26; }
-      60%  { transform: translate(3px, 0px); opacity: 0.45; }
-      80%  { transform: translate(-2px, 1px); opacity: 0.2; }
-      100% { transform: translate(1px, -1px); opacity: 0.35; }
-    }
-
-    @keyframes glitchBlue {
-      0%   { transform: translate(0px, 0px); opacity: 0.18; }
-      20%  { transform: translate(-2px, 1px); opacity: 0.34; }
-      40%  { transform: translate(1px, -1px); opacity: 0.24; }
-      60%  { transform: translate(-3px, 0px); opacity: 0.36; }
-      80%  { transform: translate(2px, -1px); opacity: 0.18; }
-      100% { transform: translate(-1px, 1px); opacity: 0.3; }
-    }
-
-    @keyframes textFlicker {
-      0%, 100% { opacity: 1; }
-      8% { opacity: 0.84; }
-      10% { opacity: 1; }
-      28% { opacity: 0.92; }
-      30% { opacity: 1; }
-      56% { opacity: 0.88; }
-      58% { opacity: 1; }
-    }
-
-    @keyframes noiseShift {
-      0% { transform: translate(0, 0); }
-      25% { transform: translate(2px, -1px); }
-      50% { transform: translate(-1px, 2px); }
-      75% { transform: translate(1px, 1px); }
-      100% { transform: translate(0, 0); }
+    @media (max-height: 650px) {
+      .scan-panel p { display: none; }
+      .reticle { width: min(54vw, 280px); }
     }
   </style>
 </head>
+
 <body>
-  <!-- SPLASH -->
-  <div id="splash" aria-label="Loading screen">
-    <div class="splash-noise"></div>
-    <div class="splash-scanlines"></div>
-
-    <div class="splash-inner">
-      <div class="logo-wrap">
-        <div class="logo-glow-ring"></div>
-
-        <!-- Replace this with your logo path -->
-        <img class="logo-red" src="odotnyc3final.png" alt="" />
-        <img class="logo-blue" src="odotnyc2.png" alt="" />
-        <img class="logo-main" src="odotnyc3final.png" alt="AR-OdotNYC Logo" />
-      </div>
-
-      <div class="app-name">AR-OdotNYC</div>
-      <div class="boot-line">Loading AR scanner...</div>
+  <div id="start-screen">
+    <div class="start-card">
+      <div class="logo">OD</div>
+      <h2>OdotNYC<br />AR Portal</h2>
+      <p>Scan the OdotNYC tote bag or sticker to unlock an interactive 3D drop powered by augmented reality.</p>
+      <button id="startBtn">Launch Scanner</button>
+      <div class="mini-note">Camera access is required. Use good lighting and keep the tote or sticker inside the scanner frame.</div>
     </div>
   </div>
 
-  <!-- APP UI OVERLAY -->
-  <div id="appShell">
-    <div class="top-ui">
-      <div class="brand-pill">
-        <img src="./assets/odotnyc3final.png" alt="AR-OdotNYC logo" />
-        <div class="brand-text">
-          <div class="brand-title">AR-OdotNYC</div>
-          <div class="brand-sub">Vision-marker augmented reality experience</div>
+  <div id="app-shell" class="hidden">
+    <header class="topbar">
+      <div class="brand">
+        <div class="orb"></div>
+        <div>
+          <h1>OdotNYC AR Scan</h1>
+          <span>Dream × Build × Create</span>
         </div>
       </div>
-    </div>
+      <div id="trackStatus" class="status-pill">Standby</div>
+    </header>
 
-    <div class="target-banner" id="targetBanner">AR OdotNYC Vision Marker Detected</div>
-
-    <div class="focus-frame">
-      <span></span>
-    </div>
-
-    <div class="bottom-ui">
-      <div class="scan-card">
-        <div class="status-row">
-          <div class="status-dot"></div>
-          <div class="status-label" id="statusText">Point camera at a AR-OdotNYC Vision-Marker</div>
-        </div>
-
-        <div class="instructions">
-          Scan OdotNYC supported vision-markers to reveal its animated 3D model.
-          Hold your phone steady and keep the marker well lit for the best tracking.
-        </div>
-
-        <div class="marker-tags">
-          <div class="marker-tag">Vision-Marker 01</div>
-          <div class="marker-tag">Vision-Marker 02</div>
-          <div class="marker-tag">Vision-Marker 03</div>
-        </div>
+    <main class="center-hud">
+      <div class="reticle" aria-hidden="true">
+        <div class="scan-line"></div>
       </div>
-    </div>
+    </main>
+
+    <footer class="bottombar">
+      <section class="scan-panel">
+        <h2>Scan Target</h2>
+        <p>Point your phone at the tote bag graphic or sticker. When the image locks, the GLB model will pop from the surface.</p>
+      </section>
+      <div class="controls">
+        <button id="recenterBtn">Recenter</button>
+        <button id="infoBtn" class="secondary">How It Works</button>
+      </div>
+      <div id="message">Waiting for camera permission…</div>
+    </footer>
   </div>
 
-  <!-- AR SCENE -->
+  <!--
+    SETUP NEEDED:
+    1. Create your MindAR target file from tote/sticker images:
+       https://hiukim.github.io/mind-ar-js-doc/tools/compile
+    2. Replace ./targets/odot-targets.mind with your compiled .mind file.
+    3. Replace the GLB files below with your real models.
+  -->
+
   <a-scene
-    mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; uiScanning: true; uiLoading: true; uiError: true; maxTrack: 2; filterMinCF: 0.001; filterBeta: 0.01"
+    id="arScene"
+    class="hidden"
+    mindar-image="imageTargetSrc: ./targets/odot-targets.mind; autoStart: false; uiScanning: no; uiLoading: no; filterMinCF: 0.0001; filterBeta: 0.001"
     color-space="sRGB"
-    renderer="colorManagement: true, physicallyCorrectLights"
-    embedded
+    renderer="colorManagement: true, physicallyCorrectLights: true; antialias: true; alpha: true"
     vr-mode-ui="enabled: false"
-    device-orientation-permission-ui="enabled: false"
-  >
-    <a-assets timeout="30000">
-      <!-- Replace with your GLB files -->
-      <a-asset-item id="model1" src="retro_ufo.glb"></a-asset-item>
-      <a-asset-item id="model2" src="office_005.glb"></a-asset-item>
-      <a-asset-item id="model3" src="#"></a-asset-item>
+    device-orientation-permission-ui="enabled: false">
+
+    <a-assets>
+      <!-- Replace with your actual GLB files -->
+      <a-asset-item id="toteModel" src="./models/odot-tote-drop.glb"></a-asset-item>
+      <a-asset-item id="stickerModel" src="./models/odot-sticker-drop.glb"></a-asset-item>
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <!-- TARGET 0 -->
-    <a-entity id="target0" mindar-image-target="targetIndex: 0">
-      <a-gltf-model
-        src="#model1"
-        position="0 0 0.1"
-        rotation="0 0 0"
-        scale="0.5 0.5 0.5"
-        animation-mixer="clip: *; loop: repeat"
-      ></a-gltf-model>
+    <!-- Target 0: Tote bag image -->
+    <a-entity id="toteTarget" mindar-image-target="targetIndex: 0">
+      <a-entity
+        id="toteDrop"
+        gltf-model="#toteModel"
+        position="0 0 0.12"
+        rotation="90 0 0"
+        scale="0.35 0.35 0.35"
+        animation="property: scale; from: 0.05 0.05 0.05; to: 0.35 0.35 0.35; dur: 700; easing: easeOutElastic; startEvents: targetFound"
+        animation__float="property: position; from: 0 0 0.09; to: 0 0.05 0.16; dur: 1600; dir: alternate; loop: true; easing: easeInOutSine">
+      </a-entity>
+      <a-ring position="0 0 0.02" rotation="0 0 0" radius-inner="0.38" radius-outer="0.41" color="#00f5ff" opacity="0.75" animation="property: rotation; to: 0 0 360; loop: true; dur: 4000; easing: linear"></a-ring>
     </a-entity>
 
-    <!-- TARGET 1 -->
-    <a-entity id="target1" mindar-image-target="targetIndex: 1">
-      <a-gltf-model
-        src="#model2"
-        position="0 0 0.1"
-        rotation="0 0 0"
-        scale="0.5 0.5 0.5"
-        animation-mixer="clip: *; loop: repeat"
-      ></a-gltf-model>
+    <!-- Target 1: Sticker image -->
+    <a-entity id="stickerTarget" mindar-image-target="targetIndex: 1">
+      <a-entity
+        id="stickerDrop"
+        gltf-model="#stickerModel"
+        position="0 0 0.10"
+        rotation="90 0 0"
+        scale="0.28 0.28 0.28"
+        animation="property: scale; from: 0.04 0.04 0.04; to: 0.28 0.28 0.28; dur: 650; easing: easeOutElastic; startEvents: targetFound"
+        animation__spin="property: rotation; to: 90 360 0; loop: true; dur: 8500; easing: linear">
+      </a-entity>
+      <a-ring position="0 0 0.02" radius-inner="0.26" radius-outer="0.29" color="#a8ff3e" opacity="0.8" animation="property: scale; from: 0.8 0.8 0.8; to: 1.25 1.25 1.25; loop: true; dir: alternate; dur: 1200"></a-ring>
     </a-entity>
-
-    <!-- TARGET 2 -->
-    <a-entity id="target2" mindar-image-target="targetIndex: 2">
-      <a-gltf-model
-        src="#model3"
-        position="0 0 0.1"
-        rotation="0 0 0"
-        scale="0.5 0.5 0.5"
-        animation-mixer="clip: *; loop: repeat"
-      ></a-gltf-model>
-    </a-entity>
-
-    <!-- LIGHTING -->
-    <a-light type="ambient" intensity="1"></a-light>
-    <a-light type="directional" intensity="1" position="1 2 1"></a-light>
   </a-scene>
 
   <script>
-    const splash = document.getElementById("splash");
-    const statusText = document.getElementById("statusText");
-    const targetBanner = document.getElementById("targetBanner");
-    const sceneEl = document.querySelector("a-scene");
+    const startScreen = document.getElementById('start-screen');
+    const startBtn = document.getElementById('startBtn');
+    const appShell = document.getElementById('app-shell');
+    const arScene = document.getElementById('arScene');
+    const message = document.getElementById('message');
+    const trackStatus = document.getElementById('trackStatus');
+    const recenterBtn = document.getElementById('recenterBtn');
+    const infoBtn = document.getElementById('infoBtn');
+    const toteTarget = document.getElementById('toteTarget');
+    const stickerTarget = document.getElementById('stickerTarget');
 
-    const targetNames = {
-      target0: "AR-ODOTNYC 01 Detected",
-      target1: "AR-ODOTNYC 02 Detected",
-      target2: "AR-ODOTNYC 03 Detected"
-    };
-
-    function showBanner(text) {
-      targetBanner.textContent = text;
-      targetBanner.classList.add("show");
+    function setStatus(text, type = 'active') {
+      trackStatus.textContent = text;
+      message.textContent = type === 'found'
+        ? 'Target locked. 3D asset deployed.'
+        : text;
     }
 
-    function hideBanner() {
-      targetBanner.classList.remove("show");
+    async function startAR() {
+      try {
+        startScreen.classList.add('hidden');
+        appShell.classList.remove('hidden');
+        arScene.classList.remove('hidden');
+        setStatus('Starting camera');
+
+        await arScene.systems['mindar-image-system'].start();
+        setStatus('Scanning');
+      } catch (error) {
+        console.error(error);
+        setStatus('Camera blocked');
+        message.textContent = 'Camera could not start. Check browser permissions and use HTTPS hosting.';
+      }
     }
 
-    function setIdleStatus() {
-      statusText.textContent = "Point camera at a supported vision-marker";
-    }
+    startBtn.addEventListener('click', startAR);
 
-    function bindTargetEvents(id) {
-      const target = document.getElementById(id);
-      if (!target) return;
-
-      target.addEventListener("targetFound", () => {
-        const name = targetNames[id] || "AR OdotNYC Marker Detected";
-        statusText.textContent = name;
-        showBanner(name);
-      });
-
-      target.addEventListener("targetLost", () => {
-        setIdleStatus();
-        hideBanner();
-      });
-    }
-
-    bindTargetEvents("target0");
-    bindTargetEvents("target1");
-    bindTargetEvents("target2");
-
-    // Start after 3 second splash
-    window.addEventListener("load", () => {
-      setTimeout(async () => {
-        splash.classList.add("hidden");
-
-        try {
-          await sceneEl.systems["mindar-image-system"].start();
-        } catch (error) {
-          console.error("MindAR start error:", error);
-          statusText.textContent = "Camera start failed. Check permissions and HTTPS.";
-        }
-      }, 3000);
+    recenterBtn.addEventListener('click', async () => {
+      try {
+        const system = arScene.systems['mindar-image-system'];
+        setStatus('Recalibrating');
+        await system.stop();
+        await system.start();
+        setStatus('Scanning');
+      } catch (error) {
+        console.error(error);
+        message.textContent = 'Recenter failed. Refresh the page and relaunch scanner.';
+      }
     });
 
-    // Prevent accidental pinch zoom / bounce issues on iOS
-    document.addEventListener(
-      "gesturestart",
-      function (e) {
-        e.preventDefault();
-      },
-      { passive: false }
-    );
+    infoBtn.addEventListener('click', () => {
+      alert('How it works:\n\n1. Upload clear tote/sticker images into the MindAR compiler.\n2. Export the .mind target file.\n3. Place your .mind file in /targets.\n4. Place your GLB models in /models.\n5. Open this page on mobile and scan the printed image.');
+    });
 
-    document.addEventListener(
-      "touchmove",
-      function (e) {
-        if (e.scale !== undefined && e.scale !== 1) {
-          e.preventDefault();
-        }
-      },
-      { passive: false }
-    );
+    toteTarget.addEventListener('targetFound', () => setStatus('Tote Locked', 'found'));
+    toteTarget.addEventListener('targetLost', () => setStatus('Scanning'));
+
+    stickerTarget.addEventListener('targetFound', () => setStatus('Sticker Locked', 'found'));
+    stickerTarget.addEventListener('targetLost', () => setStatus('Scanning'));
+
+    window.addEventListener('beforeunload', () => {
+      const system = arScene?.systems?.['mindar-image-system'];
+      if (system) system.stop();
+    });
   </script>
 </body>
 </html>
